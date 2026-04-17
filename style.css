@@ -429,6 +429,30 @@ tbody td {
   gap: 0.9rem;
 }
 
+.department-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.9rem;
+}
+
+.department-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  background: linear-gradient(160deg, #ffffff, #f7fbfd);
+  box-shadow: 0 8px 18px rgba(17, 55, 80, 0.07);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.department-card h3 {
+  font-size: 1.06rem;
+}
+
+.department-card .btn {
+  justify-self: start;
+}
+
 .submission-card {
   border: 1px solid var(--border);
   border-radius: 15px;
