@@ -102,11 +102,19 @@ The system includes multiple roles:
 ```
 project-folder/
 │
-├── index.html     # Main UI
-├── style.css      # Styling
-├── script.js      # Logic & dummy data
-└── README.md      # Project documentation
+├── index.html        # Shared login / launcher
+├── student.html      # Student dashboard page
+├── teacher.html      # Class teacher dashboard page
+├── evaluator.html    # Evaluation team page
+├── admin.html        # Admin criteria page
+├── hod.html          # HOD / IQAC page
+├── ranking.html      # Ranking dashboard page
+├── style.css         # Shared styling
+├── script.js         # Shared data, logic, and rendering
+└── README.md         # Project documentation
 ```
+
+The dashboard pages are now split into separate files so each teammate can work on one page without editing the same HTML file.
 
 ---
 
@@ -116,7 +124,9 @@ project-folder/
 2. Open the folder
 3. Double-click `index.html`
 
-👉 The project will run directly in your browser
+👉 The project will run directly in your browser.
+
+To open a specific page directly, use the matching HTML file such as `student.html`, `teacher.html`, or `ranking.html`.
 
 ---
 

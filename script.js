@@ -141,9 +141,27 @@ const ui = {};
 document.addEventListener("DOMContentLoaded", init);
 
 function init() {
+  applyPageContext();
   cacheElements();
   bindEvents();
   renderAuthState();
+}
+
+function applyPageContext() {
+  const body = document.body;
+
+  if (body && body.dataset.initialRole) {
+    state.loggedIn = true;
+    state.currentRole = body.dataset.initialRole;
+  }
+
+  if (body && body.dataset.initialPage) {
+    state.activePage = body.dataset.initialPage;
+  }
+
+  if (body && body.dataset.initialStudentId) {
+    state.currentStudentId = Number(body.dataset.initialStudentId) || state.currentStudentId;
+  }
 }
 
 function cacheElements() {
