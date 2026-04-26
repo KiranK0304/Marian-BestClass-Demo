@@ -32,6 +32,7 @@ const roleConfig = {
 };
 
 const academicYears = ["2025-2026", "2024-2025", "2023-2024"];
+const submissionStorageKey = "bestclass.submissions.v2";
 
 const students = [
   { id: 1, name: "Anika Sharma", className: "BSc CS A", department: "Computer Science" },
@@ -56,7 +57,7 @@ let criteria = [
   { id: 4, name: "Innovation Project", maxMarks: 25 }
 ];
 
-let submissions = [
+const defaultSubmissions = [
   {
     id: 1,
     studentId: 1,
@@ -129,20 +130,70 @@ let submissions = [
   }
 ];
 
+let submissions = loadSubmissions();
+
 const state = {
   loggedIn: false,
   currentRole: "student",
   activePage: "dashboard",
   currentStudentId: 1,
+  leaderClassName: null,
+  leaderFilters: {
+    status: "all",
+    studentId: "all",
+    criteriaId: "all",
+    proofType: "all",
+    query: ""
+  },
   selectedAcademicYear: academicYears[0],
   editingCriteriaId: null,
   showSubmissionForm: false,
   showLeaderSubmissionForm: false,
   editingSubmissionId: null,
+  studentEditingSubmissionId: null,
   selectedDepartment: null
 };
 
 const ui = {};
+
+function loadSubmissions() {
+  try {
+    const raw = localStorage.getItem(submissionStorageKey);
+    if (!raw) {
+      return defaultSubmissions.map(hydrateSubmission);
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return defaultSubmissions.map(hydrateSubmission);
+    }
+    return parsed.map(hydrateSubmission);
+  } catch (error) {
+    return defaultSubmissions.map(hydrateSubmission);
+  }
+}
+
+function saveSubmissions() {
+  localStorage.setItem(submissionStorageKey, JSON.stringify(submissions));
+}
+
+function hydrateSubmission(item) {
+  return {
+    id: item.id,
+    studentId: item.studentId,
+    criteriaId: item.criteriaId,
+    description: item.description || "",
+    status: item.status || "Pending",
+    remarks: item.remarks || "",
+    marks: Number.isFinite(item.marks) ? item.marks : null,
+    suggestedMarks: Number.isFinite(item.suggestedMarks) ? item.suggestedMarks : null,
+    proof: item.proof || "proof-file.pdf",
+    proofType: item.proofType || "file",
+    proofLink: item.proofLink || "",
+    editRequested: Boolean(item.editRequested),
+    createdAt: item.createdAt || new Date().toISOString(),
+    updatedAt: item.updatedAt || new Date().toISOString()
+  };
+}
 
 document.addEventListener("DOMContentLoaded", init);
 
@@ -218,6 +269,18 @@ function handleLogin(event) {
   state.loggedIn = true;
   state.activePage = "dashboard";
   state.currentRole = role;
+  state.studentEditingSubmissionId = null;
+  state.editingSubmissionId = null;
+  state.showSubmissionForm = false;
+  state.showLeaderSubmissionForm = false;
+  state.leaderClassName = role === "leader" ? getLeaderClassForDemo(email) : null;
+  state.leaderFilters = {
+    status: "all",
+    studentId: "all",
+    criteriaId: "all",
+    proofType: "all",
+    query: ""
+  };
   ui.loginForm.reset();
 
   renderAuthState();
@@ -245,6 +308,8 @@ function handleLogout() {
   state.showSubmissionForm = false;
   state.showLeaderSubmissionForm = false;
   state.editingSubmissionId = null;
+  state.studentEditingSubmissionId = null;
+  state.leaderClassName = null;
   ui.sidebar.classList.remove("open");
   renderAuthState();
   showToast("Logged out from prototype session.", "info");
@@ -332,6 +397,9 @@ function renderStudentDashboard() {
   const mySubmissions = submissions
     .filter((item) => item.studentId === state.currentStudentId)
     .sort((a, b) => b.id - a.id);
+  const editingSubmission = state.studentEditingSubmissionId
+    ? submissions.find((item) => item.id === state.studentEditingSubmissionId && item.studentId === state.currentStudentId)
+    : null;
 
   const approvedCount = mySubmissions.filter((item) => item.status === "Approved").length;
   const totalMarks = mySubmissions.reduce((sum, item) => sum + safeMark(item.marks), 0);
@@ -345,17 +413,26 @@ function renderStudentDashboard() {
             "<td>" + escapeHtml(itemCriteria ? itemCriteria.name : "Removed Criteria") + "</td>" +
             "<td>" + escapeHtml(item.description) + "</td>" +
             "<td><span class=\"status-pill " + getStatusClass(item.status) + "\">" + escapeHtml(item.status) + "</span></td>" +
+            "<td>" + (Number.isFinite(item.suggestedMarks) ? item.suggestedMarks : "-") + "</td>" +
             "<td>" + (Number.isFinite(item.marks) ? item.marks : "-") + "</td>" +
             "<td>" + escapeHtml(item.remarks || "-") + "</td>" +
+            "<td>" +
+            "<div class=\"button-row\">" +
+            (canStudentEdit(item)
+              ? "<button type=\"button\" class=\"btn ghost\" data-student-edit=\"" + item.id + "\">Edit</button>"
+              : "<button type=\"button\" class=\"btn warn\" data-student-request-edit=\"" + item.id + "\">Request Edit</button>") +
+            "</div>" +
+            "</td>" +
             "</tr>"
           );
         })
         .join("")
-    : "<tr><td colspan=\"5\" class=\"empty-row\">No submissions yet.</td></tr>";
+    : "<tr><td colspan=\"7\" class=\"empty-row\">No submissions yet.</td></tr>";
 
   const criteriaOptions = criteria
     .map((item) => {
-      return "<option value=\"" + item.id + "\">" + escapeHtml(item.name) + " (Max " + item.maxMarks + ")</option>";
+      const selected = editingSubmission && editingSubmission.criteriaId === item.id ? " selected" : "";
+      return "<option value=\"" + item.id + "\"" + selected + ">" + escapeHtml(item.name) + " (Max " + item.maxMarks + ")</option>";
     })
     .join("");
 
@@ -386,14 +463,14 @@ function renderStudentDashboard() {
     "</div>" +
     "<div class=\"table-wrap\">" +
     "<table>" +
-    "<thead><tr><th>Criteria</th><th>Description</th><th>Status</th><th>Marks</th><th>Remark</th></tr></thead>" +
+    "<thead><tr><th>Criteria</th><th>Description</th><th>Status</th><th>Suggested</th><th>Final</th><th>Remark</th><th>Action</th></tr></thead>" +
     "<tbody>" + tableRows + "</tbody>" +
     "</table>" +
     "</div>" +
     "</section>" +
 
     "<section class=\"panel " + (state.showSubmissionForm ? "" : "hidden") + "\">" +
-    "<h3>New Submission</h3>" +
+    "<h3>" + (editingSubmission ? "Edit Submission" : "New Submission") + "</h3>" +
     "<form id=\"student-submission-form\" class=\"stack-form two-col\">" +
     "<div class=\"field\">" +
     "<label for=\"submission-criteria\">Select Criteria</label>" +
@@ -401,14 +478,22 @@ function renderStudentDashboard() {
     "</div>" +
     "<div class=\"field\">" +
     "<label for=\"submission-proof\">Upload Proof</label>" +
-    "<input id=\"submission-proof\" name=\"proof\" type=\"file\" required />" +
+    "<input id=\"submission-proof\" name=\"proof\" type=\"file\" " + (editingSubmission ? "" : "required") + " />" +
+    "</div>" +
+    "<div class=\"field\">" +
+    "<label for=\"submission-proof-link\">Proof Link (optional)</label>" +
+    "<input id=\"submission-proof-link\" name=\"proofLink\" type=\"url\" placeholder=\"https://...\" value=\"" +
+    escapeAttribute(editingSubmission ? editingSubmission.proofLink : "") + "\" />" +
     "</div>" +
     "<div class=\"field full-span\">" +
     "<label for=\"submission-description\">Description</label>" +
-    "<textarea id=\"submission-description\" name=\"description\" placeholder=\"Describe the activity\" required></textarea>" +
+    "<textarea id=\"submission-description\" name=\"description\" placeholder=\"Describe the activity\" required>" +
+    escapeHtml(editingSubmission ? editingSubmission.description : "") +
+    "</textarea>" +
     "</div>" +
     "<div class=\"button-row full-span\">" +
-    "<button type=\"submit\" class=\"btn primary\">Submit</button>" +
+    "<button type=\"submit\" class=\"btn primary\">" + (editingSubmission ? "Update" : "Submit") + "</button>" +
+    (editingSubmission ? "<button type=\"button\" id=\"cancel-student-edit\" class=\"btn ghost\">Cancel</button>" : "") +
     "</div>" +
     "</form>" +
     "</section>"
@@ -416,11 +501,58 @@ function renderStudentDashboard() {
 }
 
 function renderLeaderDashboard() {
-  const allSubmissions = [...submissions].sort((a, b) => b.id - a.id);
+  const allowedStudents = students.filter((item) => item.className === state.leaderClassName);
+  const allowedStudentIds = new Set(allowedStudents.map((item) => item.id));
+  const allSubmissions = submissions
+    .filter((item) => allowedStudentIds.has(item.studentId))
+    .sort((a, b) => b.id - a.id);
   const editingSubmission = state.editingSubmissionId ? submissions.find(item => item.id === state.editingSubmissionId) : null;
+  const filters = state.leaderFilters;
 
-  const tableRows = allSubmissions.length
-    ? allSubmissions
+  const filteredSubmissions = allSubmissions.filter((item) => {
+    const student = getStudentById(item.studentId);
+    const itemCriteria = getCriteriaById(item.criteriaId);
+    const matchesStatus = filters.status === "all" || item.status === filters.status;
+    const matchesStudent = filters.studentId === "all" || String(item.studentId) === filters.studentId;
+    const matchesCriteria = filters.criteriaId === "all" || String(item.criteriaId) === filters.criteriaId;
+    const matchesProofType = filters.proofType === "all" || item.proofType === filters.proofType;
+    const query = filters.query.trim().toLowerCase();
+    const haystack = [
+      student ? student.name : "",
+      itemCriteria ? itemCriteria.name : "",
+      item.description,
+      item.status,
+      item.proof,
+      item.proofLink
+    ].join(" ").toLowerCase();
+    const matchesQuery = !query || haystack.indexOf(query) > -1;
+    return matchesStatus && matchesStudent && matchesCriteria && matchesProofType && matchesQuery;
+  });
+
+  const statusSet = new Set(allSubmissions.map((item) => item.status));
+  const statusOptions = ["<option value=\"all\">All Statuses</option>"]
+    .concat(Array.from(statusSet).sort().map((status) => {
+      const selected = filters.status === status ? " selected" : "";
+      return "<option value=\"" + escapeAttribute(status) + "\"" + selected + ">" + escapeHtml(status) + "</option>";
+    }))
+    .join("");
+
+  const studentFilterOptions = ["<option value=\"all\">All Students</option>"]
+    .concat(allowedStudents.map((item) => {
+      const selected = filters.studentId === String(item.id) ? " selected" : "";
+      return "<option value=\"" + item.id + "\"" + selected + ">" + escapeHtml(item.name) + "</option>";
+    }))
+    .join("");
+
+  const criteriaFilterOptions = ["<option value=\"all\">All Criteria</option>"]
+    .concat(criteria.map((item) => {
+      const selected = filters.criteriaId === String(item.id) ? " selected" : "";
+      return "<option value=\"" + item.id + "\"" + selected + ">" + escapeHtml(item.name) + "</option>";
+    }))
+    .join("");
+
+  const tableRows = filteredSubmissions.length
+    ? filteredSubmissions
         .map((item) => {
           const student = getStudentById(item.studentId);
           const itemCriteria = getCriteriaById(item.criteriaId);
@@ -430,9 +562,16 @@ function renderLeaderDashboard() {
             "<td>" + escapeHtml(itemCriteria ? itemCriteria.name : "Removed Criteria") + "</td>" +
             "<td>" + escapeHtml(item.description) + "</td>" +
             "<td><span class=\"status-pill " + getStatusClass(item.status) + "\">" + escapeHtml(item.status) + "</span></td>" +
+            "<td>" +
+            "<input type=\"number\" min=\"0\" step=\"0.5\" data-leader-suggested-marks=\"" + item.id + "\" value=\"" +
+            (Number.isFinite(item.suggestedMarks) ? item.suggestedMarks : "") + "\" />" +
+            "</td>" +
             "<td>" + (Number.isFinite(item.marks) ? item.marks : "-") + "</td>" +
             "<td>" +
             "<div class=\"button-row\">" +
+            "<button type=\"button\" class=\"btn success\" data-leader-status=\"Approved\" data-id=\"" + item.id + "\">Approve</button>" +
+            "<button type=\"button\" class=\"btn warn\" data-leader-status=\"Correction Requested\" data-id=\"" + item.id + "\">Correction</button>" +
+            "<button type=\"button\" class=\"btn ghost\" data-leader-status=\"Edit Allowed\" data-id=\"" + item.id + "\">Allow Edit</button>" +
             "<button type=\"button\" class=\"btn ghost\" data-leader-edit=\"" + item.id + "\">Edit</button>" +
             "<button type=\"button\" class=\"btn danger\" data-leader-delete=\"" + item.id + "\">Delete</button>" +
             "</div>" +
@@ -441,9 +580,9 @@ function renderLeaderDashboard() {
           );
         })
         .join("")
-    : "<tr><td colspan=\"6\" class=\"empty-row\">No submissions found.</td></tr>";
+      : "<tr><td colspan=\"7\" class=\"empty-row\">No submissions match current filters.</td></tr>";
 
-  const studentOptions = students
+  const studentOptions = allowedStudents
     .map((item) => "<option value=\"" + item.id + "\"" + (editingSubmission && editingSubmission.studentId === item.id ? " selected" : "") + ">" + escapeHtml(item.name) + "</option>")
     .join("");
 
@@ -455,7 +594,7 @@ function renderLeaderDashboard() {
     "<section class=\"section-header\">" +
     "<div>" +
     "<h1>Class Leader Dashboard</h1>" +
-    "<p class=\"muted\">Manage (CRUD) all student submissions here.</p>" +
+    "<p class=\"muted\">Class scope: " + escapeHtml(state.leaderClassName || "Not assigned") + ". Suggested marks are provisional.</p>" +
     "</div>" +
     "</section>" +
 
@@ -466,9 +605,38 @@ function renderLeaderDashboard() {
     (state.showLeaderSubmissionForm ? "Close Form" : "Add Submission") +
     "</button>" +
     "</div>" +
+    "<form id=\"leader-filters\" class=\"stack-form two-col\">" +
+    "<div class=\"field\">" +
+    "<label for=\"leader-filter-status\">Status</label>" +
+    "<select id=\"leader-filter-status\" name=\"status\">" + statusOptions + "</select>" +
+    "</div>" +
+    "<div class=\"field\">" +
+    "<label for=\"leader-filter-student\">Student</label>" +
+    "<select id=\"leader-filter-student\" name=\"studentId\">" + studentFilterOptions + "</select>" +
+    "</div>" +
+    "<div class=\"field\">" +
+    "<label for=\"leader-filter-criteria\">Criteria</label>" +
+    "<select id=\"leader-filter-criteria\" name=\"criteriaId\">" + criteriaFilterOptions + "</select>" +
+    "</div>" +
+    "<div class=\"field\">" +
+    "<label for=\"leader-filter-proof\">Proof Type</label>" +
+    "<select id=\"leader-filter-proof\" name=\"proofType\">" +
+    "<option value=\"all\"" + (filters.proofType === "all" ? " selected" : "") + ">All Proof Types</option>" +
+    "<option value=\"file\"" + (filters.proofType === "file" ? " selected" : "") + ">File</option>" +
+    "<option value=\"link\"" + (filters.proofType === "link" ? " selected" : "") + ">Link</option>" +
+    "</select>" +
+    "</div>" +
+    "<div class=\"field full-span\">" +
+    "<label for=\"leader-filter-query\">Search</label>" +
+    "<input id=\"leader-filter-query\" name=\"query\" type=\"text\" placeholder=\"Search student, criteria, description, proof...\" value=\"" + escapeAttribute(filters.query) + "\" />" +
+    "</div>" +
+    "<div class=\"button-row full-span\">" +
+    "<button type=\"button\" id=\"leader-filter-clear\" class=\"btn ghost\">Clear Filters</button>" +
+    "</div>" +
+    "</form>" +
     "<div class=\"table-wrap\">" +
     "<table>" +
-    "<thead><tr><th>Student</th><th>Criteria</th><th>Description</th><th>Status</th><th>Marks</th><th>Actions</th></tr></thead>" +
+    "<thead><tr><th>Student</th><th>Criteria</th><th>Description</th><th>Status</th><th>Suggested</th><th>Final</th><th>Actions</th></tr></thead>" +
     "<tbody>" + tableRows + "</tbody>" +
     "</table>" +
     "</div>" +
@@ -488,6 +656,10 @@ function renderLeaderDashboard() {
     "<div class=\"field full-span\">" +
     "<label for=\"leader-description\">Description</label>" +
     "<textarea id=\"leader-description\" name=\"description\" placeholder=\"Describe the activity\" required>" + escapeAttribute(editingSubmission ? editingSubmission.description : "") + "</textarea>" +
+    "</div>" +
+    "<div class=\"field\">" +
+    "<label for=\"leader-proof-link\">Proof Link (optional)</label>" +
+    "<input id=\"leader-proof-link\" name=\"proofLink\" type=\"url\" placeholder=\"https://...\" value=\"" + escapeAttribute(editingSubmission ? editingSubmission.proofLink : "") + "\" />" +
     "</div>" +
     "<div class=\"button-row full-span\">" +
     "<button type=\"submit\" class=\"btn primary\">Save Submission</button>" +
@@ -781,11 +953,37 @@ function handlePageClick(event) {
     return;
   }
 
+  const clearLeaderFiltersBtn = event.target.closest("#leader-filter-clear");
+  if (clearLeaderFiltersBtn) {
+    state.leaderFilters = {
+      status: "all",
+      studentId: "all",
+      criteriaId: "all",
+      proofType: "all",
+      query: ""
+    };
+    renderPage();
+    return;
+  }
+
   const leaderEditBtn = event.target.closest("button[data-leader-edit]");
   if (leaderEditBtn) {
-    state.editingSubmissionId = Number(leaderEditBtn.dataset.leaderEdit);
+    const submissionId = Number(leaderEditBtn.dataset.leaderEdit);
+    if (!canLeaderAccessSubmission(submissionId)) {
+      showToast("You can edit only submissions from your class.", "warning");
+      return;
+    }
+    state.editingSubmissionId = submissionId;
     state.showLeaderSubmissionForm = true;
     renderPage();
+    return;
+  }
+
+  const leaderStatusBtn = event.target.closest("button[data-leader-status]");
+  if (leaderStatusBtn) {
+    const submissionId = Number(leaderStatusBtn.dataset.id);
+    const nextStatus = String(leaderStatusBtn.dataset.leaderStatus || "");
+    updateLeaderStatus(submissionId, nextStatus);
     return;
   }
 
@@ -806,7 +1004,30 @@ function handlePageClick(event) {
 
   const toggleSubmissionButton = event.target.closest("#toggle-submission-form");
   if (toggleSubmissionButton) {
+    state.studentEditingSubmissionId = null;
     state.showSubmissionForm = !state.showSubmissionForm;
+    renderPage();
+    return;
+  }
+
+  const studentEditBtn = event.target.closest("button[data-student-edit]");
+  if (studentEditBtn) {
+    state.studentEditingSubmissionId = Number(studentEditBtn.dataset.studentEdit);
+    state.showSubmissionForm = true;
+    renderPage();
+    return;
+  }
+
+  const studentRequestEditBtn = event.target.closest("button[data-student-request-edit]");
+  if (studentRequestEditBtn) {
+    requestStudentEdit(Number(studentRequestEditBtn.dataset.studentRequestEdit));
+    return;
+  }
+
+  const cancelStudentEditBtn = event.target.closest("#cancel-student-edit");
+  if (cancelStudentEditBtn) {
+    state.studentEditingSubmissionId = null;
+    state.showSubmissionForm = false;
     renderPage();
     return;
   }
@@ -872,6 +1093,36 @@ function handlePageChange(event) {
     state.selectedAcademicYear = target.value;
     ui.topbarSubheading.textContent = "Academic Year " + state.selectedAcademicYear;
     showToast("Academic year updated to " + state.selectedAcademicYear + ".", "info");
+    return;
+  }
+
+  if (target.id === "leader-filter-status") {
+    state.leaderFilters.status = target.value;
+    renderPage();
+    return;
+  }
+
+  if (target.id === "leader-filter-student") {
+    state.leaderFilters.studentId = target.value;
+    renderPage();
+    return;
+  }
+
+  if (target.id === "leader-filter-criteria") {
+    state.leaderFilters.criteriaId = target.value;
+    renderPage();
+    return;
+  }
+
+  if (target.id === "leader-filter-proof") {
+    state.leaderFilters.proofType = target.value;
+    renderPage();
+    return;
+  }
+
+  if (target.id === "leader-filter-query") {
+    state.leaderFilters.query = target.value;
+    renderPage();
   }
 }
 
@@ -884,11 +1135,50 @@ function submitStudentSubmission(form) {
   const formData = new FormData(form);
   const criteriaId = Number(formData.get("criteriaId"));
   const description = String(formData.get("description") || "").trim();
+  const proofLink = String(formData.get("proofLink") || "").trim();
   const proofFile = form.querySelector("input[name='proof']");
-  const proofName = proofFile && proofFile.files && proofFile.files[0] ? proofFile.files[0].name : "proof-file.pdf";
+  const proofName = proofFile && proofFile.files && proofFile.files[0] ? proofFile.files[0].name : "";
 
   if (!criteriaId || !description) {
     showToast("Please provide criteria and description.", "error");
+    return;
+  }
+
+  if (state.studentEditingSubmissionId) {
+    const existing = submissions.find((item) => item.id === state.studentEditingSubmissionId && item.studentId === state.currentStudentId);
+    if (!existing) {
+      showToast("Submission not found.", "error");
+      return;
+    }
+
+    if (!canStudentEdit(existing)) {
+      showToast("Edit not allowed for this status.", "warning");
+      return;
+    }
+
+    existing.criteriaId = criteriaId;
+    existing.description = description;
+    existing.proof = proofName || existing.proof;
+    existing.proofType = proofLink ? "link" : "file";
+    existing.proofLink = proofLink;
+    existing.editRequested = false;
+    if (existing.status === "Edit Allowed") {
+      existing.status = "Pending";
+      existing.marks = null;
+    }
+    existing.updatedAt = new Date().toISOString();
+
+    state.studentEditingSubmissionId = null;
+    state.showSubmissionForm = false;
+    saveSubmissions();
+    form.reset();
+    renderPage();
+    showToast("Submission updated successfully.", "success");
+    return;
+  }
+
+  if (!proofName && !proofLink) {
+    showToast("Please upload a file or add a proof link.", "warning");
     return;
   }
 
@@ -901,10 +1191,17 @@ function submitStudentSubmission(form) {
     status: "Pending",
     remarks: "",
     marks: null,
-    proof: proofName
+    suggestedMarks: null,
+    proof: proofName || "proof-link",
+    proofType: proofLink ? "link" : "file",
+    proofLink: proofLink,
+    editRequested: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   });
 
   state.showSubmissionForm = false;
+  saveSubmissions();
   form.reset();
   renderPage();
   showToast("Submission added successfully.", "success");
@@ -920,9 +1217,16 @@ function submitLeaderSubmission(form) {
   const studentId = Number(formData.get("studentId"));
   const criteriaId = Number(formData.get("criteriaId"));
   const description = String(formData.get("description") || "").trim();
+  const proofLink = String(formData.get("proofLink") || "").trim();
 
   if (!studentId || !criteriaId || !description) {
     showToast("Please provide all required fields.", "error");
+    return;
+  }
+
+  const student = getStudentById(studentId);
+  if (!student || student.className !== state.leaderClassName) {
+    showToast("You can manage only students from your class.", "warning");
     return;
   }
 
@@ -932,9 +1236,16 @@ function submitLeaderSubmission(form) {
       showToast("Submission not found.", "error");
       return;
     }
+    if (!canLeaderAccessSubmission(submission.id)) {
+      showToast("You can edit only submissions from your class.", "warning");
+      return;
+    }
     submission.studentId = studentId;
     submission.criteriaId = criteriaId;
     submission.description = description;
+    submission.proofLink = proofLink;
+    submission.proofType = proofLink ? "link" : submission.proofType;
+    submission.updatedAt = new Date().toISOString();
 
     state.editingSubmissionId = null;
     state.showLeaderSubmissionForm = false;
@@ -949,16 +1260,28 @@ function submitLeaderSubmission(form) {
       status: "Pending",
       remarks: "",
       marks: null,
-      proof: "leader_proof.pdf"
+      suggestedMarks: null,
+      proof: "leader_proof.pdf",
+      proofType: proofLink ? "link" : "file",
+      proofLink: proofLink,
+      editRequested: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
     showToast("Submission added successfully.", "success");
   }
   
   state.showLeaderSubmissionForm = false;
+  saveSubmissions();
   renderPage();
 }
 
 function deleteLeaderSubmission(submissionId) {
+  if (!canLeaderAccessSubmission(submissionId)) {
+    showToast("You can delete only submissions from your class.", "warning");
+    return;
+  }
+
   const oldCount = submissions.length;
   submissions = submissions.filter(item => item.id !== submissionId);
 
@@ -972,8 +1295,68 @@ function deleteLeaderSubmission(submissionId) {
     state.showLeaderSubmissionForm = false;
   }
 
+  saveSubmissions();
   showToast("Submission deleted successfully.", "success");
   renderPage();
+}
+
+function updateLeaderStatus(submissionId, nextStatus) {
+  const submission = submissions.find((item) => item.id === submissionId);
+  if (!submission) {
+    showToast("Submission not found.", "error");
+    return;
+  }
+  if (!canLeaderAccessSubmission(submissionId)) {
+    showToast("You can update only submissions from your class.", "warning");
+    return;
+  }
+
+  const suggestedInput = ui.pageContent.querySelector("[data-leader-suggested-marks='" + submissionId + "']");
+  const suggestedValue = suggestedInput ? suggestedInput.value.trim() : "";
+  const itemCriteria = getCriteriaById(submission.criteriaId);
+  const suggestedMarks = suggestedValue === "" ? null : Number(suggestedValue);
+
+  if (suggestedValue !== "" && (!Number.isFinite(suggestedMarks) || suggestedMarks < 0)) {
+    showToast("Suggested marks must be a valid positive number.", "error");
+    return;
+  }
+
+  if (itemCriteria && Number.isFinite(suggestedMarks) && suggestedMarks > itemCriteria.maxMarks) {
+    showToast("Suggested marks cannot exceed max marks of " + itemCriteria.maxMarks + ".", "error");
+    return;
+  }
+
+  submission.suggestedMarks = suggestedMarks;
+  submission.status = nextStatus;
+  submission.editRequested = false;
+  submission.updatedAt = new Date().toISOString();
+  if (nextStatus !== "Approved") {
+    submission.marks = null;
+  }
+
+  saveSubmissions();
+  renderPage();
+  showToast("Submission " + submissionId + " updated to " + nextStatus + ".", "success");
+}
+
+function requestStudentEdit(submissionId) {
+  const submission = submissions.find((item) => item.id === submissionId && item.studentId === state.currentStudentId);
+  if (!submission) {
+    showToast("Submission not found.", "error");
+    return;
+  }
+
+  if (submission.status !== "Approved") {
+    showToast("Edit request is needed only for approved submissions.", "info");
+    return;
+  }
+
+  submission.editRequested = true;
+  submission.status = "Edit Request Pending";
+  submission.updatedAt = new Date().toISOString();
+  saveSubmissions();
+  renderPage();
+  showToast("Edit request sent to class leader.", "success");
 }
 
 function updateTeacherStatus(submissionId, nextStatus) {
@@ -1158,6 +1541,33 @@ function calculateGrade(normalizedScore) {
 
 function getStudentById(id) {
   return students.find((item) => item.id === id);
+}
+
+function getLeaderClassForDemo(email) {
+  const normalized = String(email || "").toLowerCase();
+  if (normalized.includes("bcom")) {
+    return "BCom B";
+  }
+  if (normalized.includes("english") || normalized.includes("ba")) {
+    return "BA English C";
+  }
+  return "BSc CS A";
+}
+
+function canLeaderAccessSubmission(submissionId) {
+  const submission = submissions.find((item) => item.id === submissionId);
+  if (!submission) {
+    return false;
+  }
+  const student = getStudentById(submission.studentId);
+  return Boolean(student && student.className === state.leaderClassName);
+}
+
+function canStudentEdit(submission) {
+  if (!submission || submission.studentId !== state.currentStudentId) {
+    return false;
+  }
+  return submission.status === "Pending" || submission.status === "Correction Requested" || submission.status === "Edit Allowed";
 }
 
 function getCriteriaById(id) {
