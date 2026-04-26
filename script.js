@@ -78,8 +78,24 @@ const state = {
 
 const ui = {};
 let pendingConfirmationAction = null;
+const appPageConfig = normalizeAppPageConfig(window.appPageConfig || {});
 
 document.addEventListener("DOMContentLoaded", init);
+
+function normalizeAppPageConfig(config) {
+  const safeConfig = config && typeof config === "object" ? config : {};
+  const safeRole = roleConfig[safeConfig.autoRole] ? safeConfig.autoRole : "";
+
+  return {
+    autoRole: safeRole,
+    autoPage: String(safeConfig.autoPage || "dashboard"),
+    redirectOnLogin: Boolean(safeConfig.redirectOnLogin),
+    logoutRedirect: String(safeConfig.logoutRedirect || ""),
+    rolePageRoutes: safeConfig.rolePageRoutes && typeof safeConfig.rolePageRoutes === "object"
+      ? safeConfig.rolePageRoutes
+      : {}
+  };
+}
 
 function init() {
   if (!criteriaCatalog.length) {
@@ -97,9 +113,41 @@ function init() {
   const firstItem = firstCategory && firstCategory.items && firstCategory.items[0];
   state.selectedSubmissionCategoryId = firstCategory ? firstCategory.id : "";
   state.selectedSubmissionItemId = firstItem ? firstItem.id : "";
+  applyUrlCategorySelection();
+  applyAutoPageConfig();
 
   bootstrapComputedMarks();
   renderAuthState();
+}
+
+function applyAutoPageConfig() {
+  if (!appPageConfig.autoRole) {
+    return;
+  }
+
+  state.loggedIn = true;
+  state.currentRole = appPageConfig.autoRole;
+  state.activePage = appPageConfig.autoPage;
+  state.editingCriteriaItemId = null;
+  resetEvaluatorFlow();
+  setActiveMenu(state.activePage);
+}
+
+function applyUrlCategorySelection() {
+  const params = new URLSearchParams(window.location.search);
+  const categoryId = String(params.get("category") || "").trim();
+  if (!categoryId) {
+    return;
+  }
+
+  const category = getCategoryById(categoryId);
+  if (!category) {
+    return;
+  }
+
+  state.selectedSubmissionCategoryId = category.id;
+  const firstItem = category.items && category.items[0] ? category.items[0] : null;
+  state.selectedSubmissionItemId = firstItem ? firstItem.id : "";
 }
 
 function cloneCriteriaCatalog(input) {
@@ -210,46 +258,63 @@ function cacheElements() {
 }
 
 function bindEvents() {
-  ui.loginForm.addEventListener("submit", handleLogin);
-  ui.logoutBtn.addEventListener("click", handleLogout);
+  if (ui.loginForm) {
+    ui.loginForm.addEventListener("submit", handleLogin);
+  }
 
-  ui.menuToggle.addEventListener("click", () => {
-    ui.sidebar.classList.toggle("open");
-  });
+  if (ui.logoutBtn) {
+    ui.logoutBtn.addEventListener("click", handleLogout);
+  }
 
-  ui.sidebarNav.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-page]");
-    if (!button) {
-      return;
-    }
+  if (ui.menuToggle && ui.sidebar) {
+    ui.menuToggle.addEventListener("click", () => {
+      ui.sidebar.classList.toggle("open");
+    });
+  }
 
-    setActiveMenu(button.dataset.page);
-    renderSidebar();
-    renderTopbar();
-    renderPage();
-    ui.sidebar.classList.remove("open");
-  });
+  if (ui.sidebarNav) {
+    ui.sidebarNav.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-page]");
+      if (!button) {
+        return;
+      }
 
-  ui.pageContent.addEventListener("click", handlePageClick);
-  ui.pageContent.addEventListener("submit", handlePageSubmit);
-  ui.pageContent.addEventListener("change", handlePageChange);
+      navigateToPage(button.dataset.page);
+      if (ui.sidebar) {
+        ui.sidebar.classList.remove("open");
+      }
+    });
+  }
 
-  ui.confirmCancel.addEventListener("click", closeConfirmModal);
-  ui.confirmAccept.addEventListener("click", () => {
-    if (typeof pendingConfirmationAction === "function") {
-      pendingConfirmationAction();
-    }
-    closeConfirmModal();
-  });
+  if (ui.pageContent) {
+    ui.pageContent.addEventListener("click", handlePageClick);
+    ui.pageContent.addEventListener("submit", handlePageSubmit);
+    ui.pageContent.addEventListener("change", handlePageChange);
+  }
 
-  ui.confirmModal.addEventListener("click", (event) => {
-    if (event.target === ui.confirmModal) {
+  if (ui.confirmCancel) {
+    ui.confirmCancel.addEventListener("click", closeConfirmModal);
+  }
+
+  if (ui.confirmAccept) {
+    ui.confirmAccept.addEventListener("click", () => {
+      if (typeof pendingConfirmationAction === "function") {
+        pendingConfirmationAction();
+      }
       closeConfirmModal();
-    }
-  });
+    });
+  }
+
+  if (ui.confirmModal) {
+    ui.confirmModal.addEventListener("click", (event) => {
+      if (event.target === ui.confirmModal) {
+        closeConfirmModal();
+      }
+    });
+  }
 
   window.addEventListener("resize", () => {
-    if (window.innerWidth > 1024) {
+    if (window.innerWidth > 1024 && ui.sidebar) {
       ui.sidebar.classList.remove("open");
     }
   });
@@ -259,6 +324,14 @@ function handleLogin(event) {
   event.preventDefault();
   const formData = new FormData(ui.loginForm);
   const role = String(formData.get("role") || "student");
+
+  if (appPageConfig.redirectOnLogin) {
+    const route = getRoleRoute(role, getRoleMenu(role)[0].page);
+    if (route) {
+      window.location.href = route;
+      return;
+    }
+  }
 
   state.loggedIn = true;
   state.currentRole = role;
@@ -271,12 +344,19 @@ function handleLogin(event) {
 }
 
 function handleLogout() {
+  if (appPageConfig.logoutRedirect) {
+    window.location.href = appPageConfig.logoutRedirect;
+    return;
+  }
+
   state.loggedIn = false;
   state.currentRole = "student";
   state.activePage = "dashboard";
   state.editingCriteriaItemId = null;
   resetEvaluatorFlow();
-  ui.sidebar.classList.remove("open");
+  if (ui.sidebar) {
+    ui.sidebar.classList.remove("open");
+  }
   closeConfirmModal();
 
   renderAuthState();
@@ -285,13 +365,21 @@ function handleLogout() {
 
 function renderAuthState() {
   if (!state.loggedIn) {
-    ui.loginScreen.classList.remove("hidden");
-    ui.appShell.classList.add("hidden");
+    if (ui.loginScreen) {
+      ui.loginScreen.classList.remove("hidden");
+    }
+    if (ui.appShell) {
+      ui.appShell.classList.add("hidden");
+    }
     return;
   }
 
-  ui.loginScreen.classList.add("hidden");
-  ui.appShell.classList.remove("hidden");
+  if (ui.loginScreen) {
+    ui.loginScreen.classList.add("hidden");
+  }
+  if (ui.appShell) {
+    ui.appShell.classList.remove("hidden");
+  }
 
   renderSidebar();
   renderTopbar();
@@ -308,7 +396,60 @@ function setActiveMenu(page) {
   state.activePage = found ? found.page : menu[0].page;
 }
 
+function getRoleRoute(role, page) {
+  const roleRoutes = appPageConfig.rolePageRoutes[role];
+  if (!roleRoutes || typeof roleRoutes !== "object") {
+    return "";
+  }
+
+  const route = roleRoutes[page];
+  return route ? String(route) : "";
+}
+
+function getCurrentPathname() {
+  const href = window.location.href.split("#")[0];
+  const cleanHref = href.split("?")[0];
+  const cleanPath = cleanHref.replace(window.location.origin, "");
+  return cleanPath.startsWith("/") ? cleanPath.slice(1) : cleanPath;
+}
+
+function navigateToPage(page, options) {
+  const navOptions = options && typeof options === "object" ? options : {};
+  const route = getRoleRoute(state.currentRole, page);
+  const query = navOptions.query && typeof navOptions.query === "object" ? navOptions.query : null;
+
+  if (route) {
+    const nextUrl = new URL(route, window.location.href);
+    const currentPath = getCurrentPathname();
+    const nextPath = nextUrl.pathname.startsWith("/") ? nextUrl.pathname.slice(1) : nextUrl.pathname;
+
+    if (query) {
+      Object.keys(query).forEach((key) => {
+        const value = query[key];
+        if (value === null || value === undefined || value === "") {
+          return;
+        }
+        nextUrl.searchParams.set(key, String(value));
+      });
+    }
+
+    if (currentPath !== nextPath || nextUrl.search !== window.location.search) {
+      window.location.href = nextUrl.toString();
+      return;
+    }
+  }
+
+  setActiveMenu(page);
+  renderSidebar();
+  renderTopbar();
+  renderPage();
+}
+
 function renderSidebar() {
+  if (!ui.sidebarNav || !ui.sidebarRoleLabel) {
+    return;
+  }
+
   const roleMeta = roleConfig[state.currentRole];
   const navItems = getRoleMenu(state.currentRole);
 
@@ -330,6 +471,10 @@ function renderSidebar() {
 }
 
 function renderTopbar() {
+  if (!ui.topbarHeading || !ui.topbarSubheading || !ui.topbarRoleBadge) {
+    return;
+  }
+
   const roleMeta = roleConfig[state.currentRole];
   const menuItem = getRoleMenu(state.currentRole).find((item) => item.page === state.activePage);
   const pageTitle = menuItem ? menuItem.label : roleMeta.heading;
@@ -356,6 +501,10 @@ function getTopbarSubheading() {
 }
 
 function renderPage() {
+  if (!ui.pageContent) {
+    return;
+  }
+
   let content = "";
 
   if (state.currentRole === "student") {
@@ -532,18 +681,85 @@ function renderRecentActivityPanel(items, title, limit) {
   );
 }
 
+function buildStudentCategoryProgress(studentSubmissions) {
+  const categories = getCriteriaCategories();
+
+  const categoryStates = categories.map((category) => {
+    const itemIds = new Set((category.items || []).map((item) => Number(item.id)));
+    const categorySubmissions = studentSubmissions.filter((submission) => itemIds.has(Number(submission.criteriaId)));
+    const hasSubmission = categorySubmissions.length > 0;
+
+    return {
+      id: category.id,
+      category: category.category,
+      completed: hasSubmission
+    };
+  });
+
+  const completedCount = categoryStates.filter((item) => item.completed).length;
+  const safeTotal = Math.max(1, categoryStates.length);
+  const percent = (completedCount / safeTotal) * 100;
+
+  return {
+    total: categoryStates.length,
+    completedCount: completedCount,
+    remainingCount: Math.max(0, categoryStates.length - completedCount),
+    percent: percent,
+    categories: categoryStates
+  };
+}
+
+function renderStudentProgressSection(progress) {
+  return (
+    "<section class=\"panel progress-overview\">" +
+    "<div class=\"panel-head\"><h3>Progress</h3></div>" +
+    "<p class=\"progress-line\"><strong>" + progress.completedCount + " out of " + progress.total + " categories completed</strong></p>" +
+    "<p class=\"muted\">Progress: " + progress.completedCount + " / " + progress.total + "</p>" +
+    "<div class=\"simple-progress-track\"><div class=\"simple-progress-fill\" style=\"width:" + progress.percent.toFixed(1) + "%\"></div></div>" +
+    "<div class=\"progress-pills\">" +
+    "<span class=\"progress-pill progress-pill-complete\">✔ Completed " + progress.completedCount + "</span>" +
+    "<span class=\"progress-pill progress-pill-remaining\">⬜ Remaining " + progress.remainingCount + "</span>" +
+    "</div>" +
+    "</section>"
+  );
+}
+
+function renderStudentChecklistSection(categories) {
+  const rows = categories
+    .map((item) => {
+      const icon = item.completed ? "✔" : "⬜";
+      const action = item.completed
+        ? "<span class=\"check-done\">Done</span>"
+        : "<button type=\"button\" class=\"btn ghost mini-add-btn\" data-submit-category=\"" + escapeAttribute(item.id) + "\">＋</button>";
+
+      return (
+        "<li class=\"checklist-item\">" +
+        "<span class=\"check-symbol\">" + icon + "</span>" +
+        "<span class=\"check-label\">" + escapeHtml(item.category) + "</span>" +
+        action +
+        "</li>"
+      );
+    })
+    .join("");
+
+  return (
+    "<section class=\"panel checklist-panel\">" +
+    "<div class=\"panel-head\"><h3>Category Checklist</h3></div>" +
+    "<ul class=\"checklist\">" + rows + "</ul>" +
+    "</section>"
+  );
+}
+
 function renderStudentDashboard() {
   const studentSubmissions = submissions.filter((item) => item.studentId === state.currentStudentId);
-  const metrics = buildSummaryMetrics(studentSubmissions);
+  const progress = buildStudentCategoryProgress(studentSubmissions);
 
   return (
     "<section class=\"section-header\">" +
-    "<div><h1>Student Dashboard</h1><p class=\"muted\">Track your performance and submission status.</p></div>" +
+    "<div><h1>Student Dashboard</h1><p class=\"muted\">See completed categories, remaining work, and your next activity.</p></div>" +
     "</section>" +
-    renderDashboardCards(metrics) +
-    renderStatusProgress("Submission Distribution", metrics) +
-    renderCategoryBreakdown(studentSubmissions, "Approved Score by Category") +
-    renderRecentActivityPanel(studentSubmissions, "Recent Submissions", 4) +
+    renderStudentProgressSection(progress) +
+    renderStudentChecklistSection(progress.categories) +
     "<section class=\"panel\">" +
     "<div class=\"panel-head\"><h3>Quick Actions</h3></div>" +
     "<div class=\"button-row\">" +
@@ -1055,10 +1271,27 @@ function renderHodReportsPage() {
 function handlePageClick(event) {
   const pageJump = event.target.closest("button[data-page-jump]");
   if (pageJump) {
-    setActiveMenu(pageJump.dataset.pageJump);
-    renderSidebar();
-    renderTopbar();
-    renderPage();
+    navigateToPage(pageJump.dataset.pageJump);
+    return;
+  }
+
+  const submitCategoryButton = event.target.closest("button[data-submit-category]");
+  if (submitCategoryButton) {
+    const categoryId = String(submitCategoryButton.dataset.submitCategory || "");
+    const category = getCategoryById(categoryId);
+
+    if (!category) {
+      showToast("Category not found.", "error");
+      return;
+    }
+
+    state.selectedSubmissionCategoryId = category.id;
+    const firstItem = category.items && category.items[0] ? category.items[0] : null;
+    state.selectedSubmissionItemId = firstItem ? firstItem.id : "";
+
+    navigateToPage("submit", {
+      query: { category: category.id }
+    });
     return;
   }
 
@@ -1912,6 +2145,10 @@ function resetEvaluatorFlow() {
 }
 
 function openConfirmModal(title, message, action) {
+  if (!ui.confirmModal || !ui.confirmTitle || !ui.confirmMessage) {
+    return;
+  }
+
   pendingConfirmationAction = action;
   ui.confirmTitle.textContent = title;
   ui.confirmMessage.textContent = message;
@@ -1920,12 +2157,21 @@ function openConfirmModal(title, message, action) {
 }
 
 function closeConfirmModal() {
+  if (!ui.confirmModal) {
+    pendingConfirmationAction = null;
+    return;
+  }
+
   pendingConfirmationAction = null;
   ui.confirmModal.classList.add("hidden");
   ui.confirmModal.setAttribute("aria-hidden", "true");
 }
 
 function showToast(message, variant) {
+  if (!ui.toastContainer) {
+    return;
+  }
+
   const toast = document.createElement("div");
   const toastType = variant || "info";
   toast.className = "toast toast-" + toastType;

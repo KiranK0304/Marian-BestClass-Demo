@@ -352,6 +352,117 @@ p {
   padding: var(--space-5);
 }
 
+.progress-overview {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.progress-line {
+  font-size: 1.08rem;
+  color: #0f172a;
+}
+
+.progress-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.simple-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.simple-progress-fill {
+  height: 100%;
+  background: #0f172a;
+  border-radius: inherit;
+}
+
+.progress-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.3rem 0.72rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.progress-pill-complete {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+.progress-pill-remaining {
+  color: #334155;
+  background: #f1f5f9;
+  border-color: #dbe3ef;
+}
+
+.checklist-panel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.checklist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 0.58rem 0.7rem;
+}
+
+.check-symbol {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #dbe3ef;
+  flex: 0 0 auto;
+}
+
+.check-label {
+  font-weight: 600;
+}
+
+.check-done {
+  margin-left: auto;
+  border-radius: 999px;
+  border: 1px solid #bbf7d0;
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.18rem 0.52rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.mini-add-btn {
+  margin-left: auto;
+  min-width: 38px;
+  padding: 0.36rem 0.4rem;
+  font-weight: 700;
+}
+
 .panel-head {
   display: flex;
   align-items: center;
@@ -911,6 +1022,10 @@ tbody tr:hover {
 
   .stack-form.two-col {
     grid-template-columns: 1fr;
+  }
+
+  .mini-add-btn {
+    min-width: 42px;
   }
 
   .department-card.flex-row {
