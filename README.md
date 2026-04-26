@@ -60,8 +60,9 @@ The system includes multiple roles:
 
 ### 🧑‍💼 Evaluation Dashboard
 
-* Assign marks to approved submissions
-* Validate marks (cannot exceed max marks)
+* Pending and completed evaluation sections
+* Single-step `Verify & Save` workflow
+* Optional manual override with auto-mark fallback
 
 ---
 
@@ -102,19 +103,19 @@ The system includes multiple roles:
 ```
 project-folder/
 │
-├── index.html        # Shared login / launcher
-├── student.html      # Student dashboard page
-├── teacher.html      # Class teacher dashboard page
-├── evaluator.html    # Evaluation team page
-├── admin.html        # Admin criteria page
-├── hod.html          # HOD / IQAC page
-├── ranking.html      # Ranking dashboard page
-├── style.css         # Shared styling
-├── script.js         # Shared data, logic, and rendering
-└── README.md         # Project documentation
+├── index.html
+├── style.css
+├── script.js
+├── data.js
+├── page-bootstrap.js
+├── roles/
+│   ├── student/
+│   ├── teacher/
+│   ├── evaluator/
+│   ├── admin/
+│   └── hod/
+└── README.md
 ```
-
-The dashboard pages are now split into separate files so each teammate can work on one page without editing the same HTML file.
 
 ---
 
@@ -124,9 +125,7 @@ The dashboard pages are now split into separate files so each teammate can work 
 2. Open the folder
 3. Double-click `index.html`
 
-👉 The project will run directly in your browser.
-
-To open a specific page directly, use the matching HTML file such as `student.html`, `teacher.html`, or `ranking.html`.
+👉 The project will run directly in your browser
 
 ---
 

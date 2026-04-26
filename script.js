@@ -1,206 +1,239 @@
 const roleConfig = {
   student: {
     label: "Student",
-    navLabel: "My Dashboard",
-    heading: "Student Dashboard"
-  },
-  leader: {
-    label: "Class Leader",
-    navLabel: "Leader Dashboard",
-    heading: "Class Leader Dashboard"
+    heading: "Student Workspace",
+    menu: [
+      { page: "dashboard", label: "Dashboard", icon: "◉" },
+      { page: "submit", label: "Submit Activity", icon: "✦" },
+      { page: "submissions", label: "My Submissions", icon: "▦" }
+    ]
   },
   teacher: {
     label: "Class Teacher",
-    navLabel: "Review Queue",
-    heading: "Class Teacher Dashboard"
+    heading: "Teacher Workspace",
+    menu: [
+      { page: "dashboard", label: "Dashboard", icon: "◉" },
+      { page: "verification", label: "Verification", icon: "✓" }
+    ]
   },
   evaluator: {
     label: "Evaluator",
-    navLabel: "Evaluation Desk",
-    heading: "Evaluation Team Dashboard"
+    heading: "Evaluation Workspace",
+    menu: [
+      { page: "dashboard", label: "Dashboard", icon: "◉" },
+      { page: "evaluation", label: "Evaluation", icon: "◌" }
+    ]
   },
   admin: {
     label: "Admin",
-    navLabel: "Criteria Management",
-    heading: "Admin Panel"
+    heading: "Admin Workspace",
+    menu: [
+      { page: "dashboard", label: "Dashboard", icon: "◉" },
+      { page: "criteria", label: "Criteria Management", icon: "⚙" }
+    ]
   },
   hod: {
     label: "HOD / IQAC",
-    navLabel: "Performance View",
-    heading: "HOD / IQAC Dashboard"
+    heading: "HOD / IQAC Workspace",
+    menu: [
+      { page: "dashboard", label: "Dashboard", icon: "◉" },
+      { page: "reports", label: "Reports", icon: "◨" }
+    ]
   }
 };
 
 const academicYears = ["2025-2026", "2024-2025", "2023-2024"];
-const submissionStorageKey = "bestclass.submissions.v2";
+
+const evaluatorDepartmentRules = [
+  { match: "bsc cs", department: "Computer Science" },
+  { match: "bcom", department: "Commerce" },
+  { match: "ba english", department: "English" }
+];
 
 const students = [
-  { id: 1, name: "Anika Sharma", className: "BSc CS A", department: "Computer Science" },
-  { id: 2, name: "Rahul Menon", className: "BSc CS A", department: "Computer Science" },
-  { id: 3, name: "Sara Joseph", className: "BCom B", department: "Commerce" },
-  { id: 4, name: "Arjun Das", className: "BCom B", department: "Commerce" },
-  { id: 5, name: "Nisha Iyer", className: "BA English C", department: "English" },
-  { id: 6, name: "Vikram Patel", className: "BA English C", department: "English" }
-];
-function getDepartments() {
-  return Array.from(new Set(students.map(s => s.department)));
-}
-
-function getStudentsByDepartment(dept) {
-  return students.filter(s => s.department === dept);
-}
-
-let criteria = [
-  { id: 1, name: "Sports", maxMarks: 10 },
-  { id: 2, name: "Arts", maxMarks: 15 },
-  { id: 3, name: "NSS / Social Service", maxMarks: 20 },
-  { id: 4, name: "Innovation Project", maxMarks: 25 }
+  { id: 1, name: "Anika Sharma", className: "BSc CS A" },
+  { id: 2, name: "Rahul Menon", className: "BSc CS A" },
+  { id: 3, name: "Sara Joseph", className: "BCom B" },
+  { id: 4, name: "Arjun Das", className: "BCom B" },
+  { id: 5, name: "Nisha Iyer", className: "BA English C" },
+  { id: 6, name: "Vikram Patel", className: "BA English C" }
 ];
 
-const defaultSubmissions = [
-  {
-    id: 1,
-    studentId: 1,
-    criteriaId: 1,
-    description: "Inter-college football runner-up participation.",
-    status: "Approved",
-    remarks: "Strong participation",
-    marks: 8,
-    proof: "football_certificate.pdf"
-  },
-  {
-    id: 2,
-    studentId: 1,
-    criteriaId: 2,
-    description: "Classical dance performance in annual arts fest.",
-    status: "Pending",
-    remarks: "",
-    marks: null,
-    proof: "dance_photo.jpg"
-  },
-  {
-    id: 3,
-    studentId: 2,
-    criteriaId: 3,
-    description: "Participated in local clean-up drive.",
-    status: "Rejected",
-    remarks: "Need coordinator signature",
-    marks: null,
-    proof: "drive_report.docx"
-  },
-  {
-    id: 4,
-    studentId: 3,
-    criteriaId: 4,
-    description: "Built IoT attendance system prototype.",
-    status: "Approved",
-    remarks: "Excellent demo",
-    marks: 22,
-    proof: "iot_project.pptx"
-  },
-  {
-    id: 5,
-    studentId: 4,
-    criteriaId: 2,
-    description: "Won poster design competition at district level.",
-    status: "Correction Requested",
-    remarks: "Attach event brochure",
-    marks: null,
-    proof: "poster.jpg"
-  },
-  {
-    id: 6,
-    studentId: 5,
-    criteriaId: 1,
-    description: "Reached finals in athletics sprint.",
-    status: "Pending",
-    remarks: "",
-    marks: null,
-    proof: "athletics_photo.png"
-  },
-  {
-    id: 7,
-    studentId: 6,
-    criteriaId: 3,
-    description: "Volunteered in blood donation camp.",
-    status: "Approved",
-    remarks: "Verified by coordinator",
-    marks: 17,
-    proof: "volunteer_letter.pdf"
-  }
-];
-
-let submissions = loadSubmissions();
+let criteriaCatalog = cloneCriteriaCatalog(window.criteriaData || []);
+let submissions = cloneSubmissions(window.seedSubmissions || []);
 
 const state = {
   loggedIn: false,
   currentRole: "student",
   activePage: "dashboard",
   currentStudentId: 1,
-  leaderClassName: null,
-  leaderFilters: {
-    status: "all",
-    studentId: "all",
-    criteriaId: "all",
-    proofType: "all",
-    query: ""
-  },
   selectedAcademicYear: academicYears[0],
-  editingCriteriaId: null,
-  showSubmissionForm: false,
-  showLeaderSubmissionForm: false,
-  editingSubmissionId: null,
-  studentEditingSubmissionId: null,
-  selectedDepartment: null
+  evaluatorView: "departments",
+  evaluatorDepartment: "",
+  evaluatorStudentId: null,
+  evaluatorTransition: null,
+  selectedSubmissionCategoryId: "",
+  selectedSubmissionItemId: "",
+  editingCriteriaItemId: null
 };
 
 const ui = {};
-
-function loadSubmissions() {
-  try {
-    const raw = localStorage.getItem(submissionStorageKey);
-    if (!raw) {
-      return defaultSubmissions.map(hydrateSubmission);
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return defaultSubmissions.map(hydrateSubmission);
-    }
-    return parsed.map(hydrateSubmission);
-  } catch (error) {
-    return defaultSubmissions.map(hydrateSubmission);
-  }
-}
-
-function saveSubmissions() {
-  localStorage.setItem(submissionStorageKey, JSON.stringify(submissions));
-}
-
-function hydrateSubmission(item) {
-  return {
-    id: item.id,
-    studentId: item.studentId,
-    criteriaId: item.criteriaId,
-    description: item.description || "",
-    status: item.status || "Pending",
-    remarks: item.remarks || "",
-    marks: Number.isFinite(item.marks) ? item.marks : null,
-    suggestedMarks: Number.isFinite(item.suggestedMarks) ? item.suggestedMarks : null,
-    proof: item.proof || "proof-file.pdf",
-    proofType: item.proofType || "file",
-    proofLink: item.proofLink || "",
-    editRequested: Boolean(item.editRequested),
-    createdAt: item.createdAt || new Date().toISOString(),
-    updatedAt: item.updatedAt || new Date().toISOString()
-  };
-}
+let pendingConfirmationAction = null;
+let evaluatorTransitionResetTimer = null;
+const appPageConfig = normalizeAppPageConfig(window.appPageConfig || {});
 
 document.addEventListener("DOMContentLoaded", init);
 
+function normalizeAppPageConfig(config) {
+  const safeConfig = config && typeof config === "object" ? config : {};
+  const safeRole = roleConfig[safeConfig.autoRole] ? safeConfig.autoRole : "";
+
+  return {
+    autoRole: safeRole,
+    autoPage: String(safeConfig.autoPage || "dashboard"),
+    redirectOnLogin: Boolean(safeConfig.redirectOnLogin),
+    logoutRedirect: String(safeConfig.logoutRedirect || ""),
+    rolePageRoutes: safeConfig.rolePageRoutes && typeof safeConfig.rolePageRoutes === "object"
+      ? safeConfig.rolePageRoutes
+      : {}
+  };
+}
+
 function init() {
+  if (!criteriaCatalog.length) {
+    criteriaCatalog = getDefaultCriteriaCatalog();
+  }
+
+  if (!submissions.length) {
+    submissions = getDefaultSubmissions();
+  }
+
   cacheElements();
   bindEvents();
+
+  const firstCategory = criteriaCatalog[0];
+  const firstItem = firstCategory && firstCategory.items && firstCategory.items[0];
+  state.selectedSubmissionCategoryId = firstCategory ? firstCategory.id : "";
+  state.selectedSubmissionItemId = firstItem ? firstItem.id : "";
+  applyUrlCategorySelection();
+  applyAutoPageConfig();
+
+  bootstrapComputedMarks();
   renderAuthState();
+}
+
+function applyAutoPageConfig() {
+  if (!appPageConfig.autoRole) {
+    return;
+  }
+
+  state.loggedIn = true;
+  state.currentRole = appPageConfig.autoRole;
+  state.activePage = appPageConfig.autoPage;
+  state.editingCriteriaItemId = null;
+  resetEvaluatorFlow();
+  setActiveMenu(state.activePage);
+}
+
+function applyUrlCategorySelection() {
+  const params = new URLSearchParams(window.location.search);
+  const categoryId = String(params.get("category") || "").trim();
+  if (!categoryId) {
+    return;
+  }
+
+  const category = getCategoryById(categoryId);
+  if (!category) {
+    return;
+  }
+
+  state.selectedSubmissionCategoryId = category.id;
+  const firstItem = category.items && category.items[0] ? category.items[0] : null;
+  state.selectedSubmissionItemId = firstItem ? firstItem.id : "";
+}
+
+function cloneCriteriaCatalog(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input.map((category, categoryIndex) => {
+    const safeCategoryId = category.id || "cat-" + (categoryIndex + 1);
+    const items = Array.isArray(category.items)
+      ? category.items.map((item, itemIndex) => {
+          return {
+            id: Number(item.id) || Number(String(categoryIndex + 1) + String(itemIndex + 1)),
+            category: String(item.category || category.category || "General"),
+            title: String(item.title || "Untitled"),
+            type: normalizeCriteriaType(item.type),
+            marks: Number.isFinite(item.marks) ? item.marks : 0,
+            rules: Array.isArray(item.rules)
+              ? item.rules.map((rule) => {
+                  return {
+                    min: Number.isFinite(rule.min) ? rule.min : 0,
+                    max: Number.isFinite(rule.max) ? rule.max : 100,
+                    marks: Number.isFinite(rule.marks) ? rule.marks : 0
+                  };
+                })
+              : []
+          };
+        })
+      : [];
+
+    return {
+      id: safeCategoryId,
+      category: String(category.category || "General"),
+      items: items
+    };
+  });
+}
+
+function cloneSubmissions(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input.map((submission, index) => {
+    return {
+      id: Number(submission.id) || index + 1,
+      studentId: Number(submission.studentId) || 1,
+      criteriaId: Number(submission.criteriaId) || 0,
+      description: String(submission.description || ""),
+      status: String(submission.status || "Pending"),
+      remarks: String(submission.remarks || ""),
+      marks: Number.isFinite(submission.marks) ? submission.marks : null,
+      proof: String(submission.proof || "proof-file.pdf"),
+      evaluatorVerified: Boolean(submission.evaluatorVerified),
+      evidence: normalizeEvidence(submission.evidence)
+    };
+  });
+}
+
+function normalizeEvidence(evidence) {
+  const safeEvidence = evidence && typeof evidence === "object" ? evidence : {};
+  return {
+    type: normalizeCriteriaType(safeEvidence.type),
+    count: Number.isFinite(safeEvidence.count) ? safeEvidence.count : null,
+    value: Number.isFinite(safeEvidence.value) ? safeEvidence.value : null,
+    checked: Boolean(safeEvidence.checked)
+  };
+}
+
+function normalizeCriteriaType(type) {
+  const normalized = String(type || "fixed").toLowerCase();
+  if (normalized === "count") {
+    return "count";
+  }
+  if (normalized === "range") {
+    return "range";
+  }
+  if (normalized === "negative") {
+    return "negative";
+  }
+  if (normalized === "boolean") {
+    return "boolean";
+  }
+  return "fixed";
 }
 
 function cacheElements() {
@@ -215,36 +248,75 @@ function cacheElements() {
   ui.logoutBtn = document.getElementById("logout-btn");
   ui.topbarHeading = document.getElementById("topbar-heading");
   ui.topbarSubheading = document.getElementById("topbar-subheading");
+  ui.topbarRoleBadge = document.getElementById("topbar-role-badge");
   ui.pageContent = document.getElementById("page-content");
   ui.toastContainer = document.getElementById("toast-container");
+
+  ui.confirmModal = document.getElementById("confirm-modal");
+  ui.confirmTitle = document.getElementById("confirm-title");
+  ui.confirmMessage = document.getElementById("confirm-message");
+  ui.confirmCancel = document.getElementById("confirm-cancel");
+  ui.confirmAccept = document.getElementById("confirm-accept");
 }
 
 function bindEvents() {
-  ui.loginForm.addEventListener("submit", handleLogin);
-  ui.logoutBtn.addEventListener("click", handleLogout);
+  if (ui.loginForm) {
+    ui.loginForm.addEventListener("submit", handleLogin);
+  }
 
-  ui.menuToggle.addEventListener("click", () => {
-    ui.sidebar.classList.toggle("open");
-  });
+  if (ui.logoutBtn) {
+    ui.logoutBtn.addEventListener("click", handleLogout);
+  }
 
-  ui.sidebarNav.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-page]");
-    if (!button) {
-      return;
-    }
+  if (ui.menuToggle && ui.sidebar) {
+    ui.menuToggle.addEventListener("click", () => {
+      ui.sidebar.classList.toggle("open");
+    });
+  }
 
-    state.activePage = button.dataset.page;
-    renderSidebar();
-    renderPage();
-    ui.sidebar.classList.remove("open");
-  });
+  if (ui.sidebarNav) {
+    ui.sidebarNav.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-page]");
+      if (!button) {
+        return;
+      }
 
-  ui.pageContent.addEventListener("click", handlePageClick);
-  ui.pageContent.addEventListener("submit", handlePageSubmit);
-  ui.pageContent.addEventListener("change", handlePageChange);
+      navigateToPage(button.dataset.page);
+      if (ui.sidebar) {
+        ui.sidebar.classList.remove("open");
+      }
+    });
+  }
+
+  if (ui.pageContent) {
+    ui.pageContent.addEventListener("click", handlePageClick);
+    ui.pageContent.addEventListener("submit", handlePageSubmit);
+    ui.pageContent.addEventListener("change", handlePageChange);
+  }
+
+  if (ui.confirmCancel) {
+    ui.confirmCancel.addEventListener("click", closeConfirmModal);
+  }
+
+  if (ui.confirmAccept) {
+    ui.confirmAccept.addEventListener("click", () => {
+      if (typeof pendingConfirmationAction === "function") {
+        pendingConfirmationAction();
+      }
+      closeConfirmModal();
+    });
+  }
+
+  if (ui.confirmModal) {
+    ui.confirmModal.addEventListener("click", (event) => {
+      if (event.target === ui.confirmModal) {
+        closeConfirmModal();
+      }
+    });
+  }
 
   window.addEventListener("resize", () => {
-    if (window.innerWidth > 960) {
+    if (window.innerWidth > 1024 && ui.sidebar) {
       ui.sidebar.classList.remove("open");
     }
   });
@@ -252,91 +324,138 @@ function bindEvents() {
 
 function handleLogin(event) {
   event.preventDefault();
-
   const formData = new FormData(ui.loginForm);
-  const email = String(formData.get("email") || "").trim();
   const role = String(formData.get("role") || "student");
 
-  // Debug: log login attempt
-  console.log("Login attempt", { email, role });
-
-  // For demo: allow any email/password, just require a role
-  if (!role) {
-    showToast("Please select a role.", "error");
-    return;
+  if (appPageConfig.redirectOnLogin) {
+    const route = getRoleRoute(role, getRoleMenu(role)[0].page);
+    if (route) {
+      window.location.href = route;
+      return;
+    }
   }
 
   state.loggedIn = true;
-  state.activePage = "dashboard";
   state.currentRole = role;
-  state.studentEditingSubmissionId = null;
-  state.editingSubmissionId = null;
-  state.showSubmissionForm = false;
-  state.showLeaderSubmissionForm = false;
-  state.leaderClassName = role === "leader" ? getLeaderClassForDemo(email) : null;
-  state.leaderFilters = {
-    status: "all",
-    studentId: "all",
-    criteriaId: "all",
-    proofType: "all",
-    query: ""
-  };
-  ui.loginForm.reset();
+  state.activePage = getRoleMenu(role)[0].page;
+  state.editingCriteriaItemId = null;
+  resetEvaluatorFlow();
 
   renderAuthState();
-  showToast("Login successful. Prototype mode active.", "success");
-}
-
-function handleRoleSwitch(event) {
-  state.currentRole = event.target.value;
-  state.activePage = "dashboard";
-  state.editingCriteriaId = null;
-  state.showSubmissionForm = false;
-  state.showLeaderSubmissionForm = false;
-  state.editingSubmissionId = null;
-
-  renderSidebar();
-  renderPage();
-  ui.sidebar.classList.remove("open");
-  showToast("Role switched to " + roleConfig[state.currentRole].label + ".", "info");
+  showToast("Welcome, " + roleConfig[role].label + ".", "success");
 }
 
 function handleLogout() {
+  if (appPageConfig.logoutRedirect) {
+    window.location.href = appPageConfig.logoutRedirect;
+    return;
+  }
+
   state.loggedIn = false;
+  state.currentRole = "student";
   state.activePage = "dashboard";
-  state.editingCriteriaId = null;
-  state.showSubmissionForm = false;
-  state.showLeaderSubmissionForm = false;
-  state.editingSubmissionId = null;
-  state.studentEditingSubmissionId = null;
-  state.leaderClassName = null;
-  ui.sidebar.classList.remove("open");
+  state.editingCriteriaItemId = null;
+  resetEvaluatorFlow();
+  if (ui.sidebar) {
+    ui.sidebar.classList.remove("open");
+  }
+  closeConfirmModal();
+
   renderAuthState();
-  showToast("Logged out from prototype session.", "info");
+  showToast("Logged out successfully.", "info");
 }
 
 function renderAuthState() {
   if (!state.loggedIn) {
-    ui.loginScreen.classList.remove("hidden");
-    ui.appShell.classList.add("hidden");
+    if (ui.loginScreen) {
+      ui.loginScreen.classList.remove("hidden");
+    }
+    if (ui.appShell) {
+      ui.appShell.classList.add("hidden");
+    }
     return;
   }
 
-  ui.loginScreen.classList.add("hidden");
-  ui.appShell.classList.remove("hidden");
+  if (ui.loginScreen) {
+    ui.loginScreen.classList.add("hidden");
+  }
+  if (ui.appShell) {
+    ui.appShell.classList.remove("hidden");
+  }
 
   renderSidebar();
+  renderTopbar();
+  renderPage();
+}
+
+function getRoleMenu(role) {
+  return roleConfig[role] ? roleConfig[role].menu : roleConfig.student.menu;
+}
+
+function setActiveMenu(page) {
+  const menu = getRoleMenu(state.currentRole);
+  const found = menu.find((item) => item.page === page);
+  state.activePage = found ? found.page : menu[0].page;
+}
+
+function getRoleRoute(role, page) {
+  const roleRoutes = appPageConfig.rolePageRoutes[role];
+  if (!roleRoutes || typeof roleRoutes !== "object") {
+    return "";
+  }
+
+  const route = roleRoutes[page];
+  return route ? String(route) : "";
+}
+
+function getCurrentPathname() {
+  const href = window.location.href.split("#")[0];
+  const cleanHref = href.split("?")[0];
+  const cleanPath = cleanHref.replace(window.location.origin, "");
+  return cleanPath.startsWith("/") ? cleanPath.slice(1) : cleanPath;
+}
+
+function navigateToPage(page, options) {
+  const navOptions = options && typeof options === "object" ? options : {};
+  const route = getRoleRoute(state.currentRole, page);
+  const query = navOptions.query && typeof navOptions.query === "object" ? navOptions.query : null;
+
+  if (route) {
+    const nextUrl = new URL(route, window.location.href);
+    const currentPath = getCurrentPathname();
+    const nextPath = nextUrl.pathname.startsWith("/") ? nextUrl.pathname.slice(1) : nextUrl.pathname;
+
+    if (query) {
+      Object.keys(query).forEach((key) => {
+        const value = query[key];
+        if (value === null || value === undefined || value === "") {
+          return;
+        }
+        nextUrl.searchParams.set(key, String(value));
+      });
+    }
+
+    if (currentPath !== nextPath || nextUrl.search !== window.location.search) {
+      window.location.href = nextUrl.toString();
+      return;
+    }
+  }
+
+  setActiveMenu(page);
+  renderSidebar();
+  renderTopbar();
   renderPage();
 }
 
 function renderSidebar() {
-  const roleMeta = roleConfig[state.currentRole];
-  ui.sidebarRoleLabel.textContent = roleMeta.label;
+  if (!ui.sidebarNav || !ui.sidebarRoleLabel) {
+    return;
+  }
 
-  const navItems = [
-    { page: "dashboard", label: roleMeta.navLabel },
-    { page: "ranking", label: "Ranking Dashboard" }
-  ];
+  const roleMeta = roleConfig[state.currentRole];
+  const navItems = getRoleMenu(state.currentRole);
+
+  ui.sidebarRoleLabel.textContent = roleMeta.label;
 
   ui.sidebarNav.innerHTML = navItems
     .map((item) => {
@@ -344,7 +463,8 @@ function renderSidebar() {
       return (
         "<li>" +
         "<button type=\"button\" class=\"nav-item " + activeClass + "\" data-page=\"" + item.page + "\">" +
-        escapeHtml(item.label) +
+        "<span class=\"nav-icon\">" + escapeHtml(item.icon) + "</span>" +
+        "<span>" + escapeHtml(item.label) + "</span>" +
         "</button>" +
         "</li>"
       );
@@ -352,439 +472,611 @@ function renderSidebar() {
     .join("");
 }
 
-function renderPage() {
-  if (state.activePage === "ranking") {
-    ui.topbarHeading.textContent = "Ranking Dashboard";
-    ui.topbarSubheading.textContent = "Live class leaderboard by score";
-    ui.pageContent.innerHTML = renderRankingDashboard();
+function renderTopbar() {
+  if (!ui.topbarHeading || !ui.topbarSubheading || !ui.topbarRoleBadge) {
     return;
   }
 
   const roleMeta = roleConfig[state.currentRole];
-  ui.topbarHeading.textContent = roleMeta.heading;
-  ui.topbarSubheading.textContent = "Academic Year " + state.selectedAcademicYear;
+  const menuItem = getRoleMenu(state.currentRole).find((item) => item.page === state.activePage);
+  const pageTitle = menuItem ? menuItem.label : roleMeta.heading;
 
-  if (state.currentRole === "student") {
-    ui.pageContent.innerHTML = renderStudentDashboard();
-    return;
-  }
-
-  if (state.currentRole === "leader") {
-    ui.pageContent.innerHTML = renderLeaderDashboard();
-    return;
-  }
-
-  if (state.currentRole === "teacher") {
-    ui.pageContent.innerHTML = renderTeacherDashboard();
-    return;
-  }
-
-  if (state.currentRole === "evaluator") {
-    ui.pageContent.innerHTML = renderEvaluatorDashboard();
-    return;
-  }
-
-  if (state.currentRole === "admin") {
-    ui.pageContent.innerHTML = renderAdminDashboard();
-    return;
-  }
-
-  ui.pageContent.innerHTML = renderHodDashboard();
+  ui.topbarHeading.textContent = pageTitle;
+  ui.topbarSubheading.textContent = getTopbarSubheading();
+  ui.topbarRoleBadge.textContent = roleMeta.label;
+  ui.topbarRoleBadge.className = "role-badge role-" + state.currentRole;
 }
 
-function renderStudentDashboard() {
-  const student = getStudentById(state.currentStudentId);
-  const mySubmissions = submissions
-    .filter((item) => item.studentId === state.currentStudentId)
-    .sort((a, b) => b.id - a.id);
-  const editingSubmission = state.studentEditingSubmissionId
-    ? submissions.find((item) => item.id === state.studentEditingSubmissionId && item.studentId === state.currentStudentId)
-    : null;
+function getTopbarSubheading() {
+  if (state.currentRole === "evaluator" && state.activePage === "evaluation") {
+    return "Pending and completed verification queue";
+  }
 
-  const approvedCount = mySubmissions.filter((item) => item.status === "Approved").length;
-  const totalMarks = mySubmissions.reduce((sum, item) => sum + safeMark(item.marks), 0);
+  return "Academic Year " + state.selectedAcademicYear;
+}
 
-  const tableRows = mySubmissions.length
-    ? mySubmissions
-        .map((item) => {
-          const itemCriteria = getCriteriaById(item.criteriaId);
+function renderPage() {
+  if (!ui.pageContent) {
+    return;
+  }
+
+  let content = "";
+
+  if (state.currentRole === "student") {
+    if (state.activePage === "submit") {
+      content = renderStudentSubmitPage();
+    } else if (state.activePage === "submissions") {
+      content = renderStudentSubmissionsPage();
+    } else {
+      content = renderStudentDashboard();
+    }
+  } else if (state.currentRole === "teacher") {
+    content = state.activePage === "verification" ? renderTeacherVerificationPage() : renderTeacherDashboard();
+  } else if (state.currentRole === "evaluator") {
+    content = state.activePage === "evaluation" ? renderEvaluatorEvaluationPage() : renderEvaluatorDashboard();
+  } else if (state.currentRole === "admin") {
+    content = state.activePage === "criteria" ? renderAdminCriteriaPage() : renderAdminDashboard();
+  } else {
+    content = state.activePage === "reports" ? renderHodReportsPage() : renderHodDashboard();
+  }
+
+  ui.pageContent.innerHTML = "<div class=\"page-stack\">" + content + "</div>";
+}
+
+function renderDashboardCards(metrics) {
+  const displayMax = Number.isFinite(metrics.maxScore) ? metrics.maxScore : 0;
+  const safeMax = Math.max(1, displayMax);
+  const scorePercent = Math.min(100, Math.max(0, (metrics.score / safeMax) * 100));
+
+  const cards = [
+    { key: "total", icon: "◉", label: "Total Submissions", value: metrics.total },
+    { key: "approved", icon: "✓", label: "Approved", value: metrics.approved },
+    { key: "pending", icon: "◔", label: "Pending", value: metrics.pending },
+    {
+      key: "score",
+      icon: "◈",
+      label: "Total Score",
+      value:
+        "<div class=\"score-meta\"><p>Score: " + metrics.score.toFixed(1) + " / " + displayMax.toFixed(1) +
+        "</p><p>" + scorePercent.toFixed(1) + "%</p></div>" +
+        "<div class=\"progress-track\"><div class=\"progress-fill progress-score\" style=\"width:" + scorePercent.toFixed(1) + "%\"></div></div>"
+    }
+  ];
+
+  return (
+    "<section class=\"cards-grid stats-grid\">" +
+    cards
+      .map((card) => {
+        const valueHtml = card.key === "score" ? card.value : "<h3>" + escapeHtml(card.value) + "</h3>";
+        return (
+          "<article class=\"stat-card " + card.key + "\">" +
+          "<div class=\"stat-head\"><span class=\"stat-icon\">" + card.icon + "</span><p>" + escapeHtml(card.label) + "</p></div>" +
+          valueHtml +
+          "</article>"
+        );
+      })
+      .join("") +
+    "</section>"
+  );
+}
+
+function renderStatusProgress(title, counts) {
+  const total = Math.max(1, counts.total);
+  const rows = [
+    { key: "Approved", value: counts.approved, className: "progress-approved" },
+    { key: "Pending", value: counts.pending, className: "progress-pending" },
+    { key: "Rejected", value: counts.rejected, className: "progress-rejected" },
+    { key: "Correction", value: counts.correction, className: "progress-correction" }
+  ];
+
+  return (
+    "<section class=\"chart-card\">" +
+    "<h3>" + escapeHtml(title) + "</h3>" +
+    "<div class=\"progress-list\">" +
+    rows
+      .map((row) => {
+        const percent = (row.value / total) * 100;
+        return (
+          "<div class=\"progress-row\">" +
+          "<div class=\"progress-meta\"><span>" + escapeHtml(row.key) + "</span><span>" + row.value + " | " + percent.toFixed(1) + "%</span></div>" +
+          "<div class=\"progress-track\"><div class=\"progress-fill " + row.className + "\" style=\"width:" + percent.toFixed(1) + "%\"></div></div>" +
+          "</div>"
+        );
+      })
+      .join("") +
+    "</div>" +
+    "</section>"
+  );
+}
+
+function renderCategoryBreakdown(items, title) {
+  const categoryMap = new Map();
+
+  items.forEach((submission) => {
+    if (submission.status !== "Approved") {
+      return;
+    }
+
+    const criteriaItem = getCriteriaById(submission.criteriaId);
+    const categoryName = getCriteriaCategoryLabel(criteriaItem);
+    const current = categoryMap.get(categoryName) || {
+      category: categoryName,
+      count: 0,
+      score: 0
+    };
+
+    current.count += 1;
+    current.score += safeMark(getSubmissionEffectiveMarks(submission));
+    categoryMap.set(categoryName, current);
+  });
+
+  const rows = Array.from(categoryMap.values())
+    .sort((a, b) => b.score - a.score || a.category.localeCompare(b.category))
+    .slice(0, 8);
+
+  if (!rows.length) {
+    return (
+      "<section class=\"chart-card\">" +
+      "<h3>" + escapeHtml(title) + "</h3>" +
+      "<p class=\"empty-state\">No approved marks available yet.</p>" +
+      "</section>"
+    );
+  }
+
+  const maxScore = Math.max(1, ...rows.map((row) => Math.abs(row.score)));
+
+  return (
+    "<section class=\"chart-card\">" +
+    "<h3>" + escapeHtml(title) + "</h3>" +
+    "<div class=\"progress-list\">" +
+    rows
+      .map((row) => {
+        const width = Math.min(100, (Math.abs(row.score) / maxScore) * 100);
+        const fillClass = row.score < 0 ? "progress-rejected" : "progress-score";
+        return (
+          "<div class=\"progress-row\">" +
+          "<div class=\"progress-meta\"><span>" + escapeHtml(row.category) + "</span><span>" + row.count + " approved | " + row.score.toFixed(1) + " marks</span></div>" +
+          "<div class=\"progress-track\"><div class=\"progress-fill " + fillClass + "\" style=\"width:" + width.toFixed(1) + "%\"></div></div>" +
+          "</div>"
+        );
+      })
+      .join("") +
+    "</div>" +
+    "</section>"
+  );
+}
+
+function renderRecentActivityPanel(items, title, limit) {
+  const recentItems = [...items].sort((a, b) => b.id - a.id).slice(0, limit || 5);
+
+  const rows = recentItems.length
+    ? recentItems
+        .map((submission) => {
+          const student = getStudentById(submission.studentId);
+          const criteriaItem = getCriteriaById(submission.criteriaId);
+          const marks = getSubmissionEffectiveMarks(submission);
           return (
             "<tr>" +
-            "<td>" + escapeHtml(itemCriteria ? itemCriteria.name : "Removed Criteria") + "</td>" +
-            "<td>" + escapeHtml(item.description) + "</td>" +
-            "<td><span class=\"status-pill " + getStatusClass(item.status) + "\">" + escapeHtml(item.status) + "</span></td>" +
-            "<td>" + (Number.isFinite(item.suggestedMarks) ? item.suggestedMarks : "-") + "</td>" +
-            "<td>" + (Number.isFinite(item.marks) ? item.marks : "-") + "</td>" +
-            "<td>" + escapeHtml(item.remarks || "-") + "</td>" +
-            "<td>" +
-            "<div class=\"button-row\">" +
-            (canStudentEdit(item)
-              ? "<button type=\"button\" class=\"btn ghost\" data-student-edit=\"" + item.id + "\">Edit</button>"
-              : "<button type=\"button\" class=\"btn warn\" data-student-request-edit=\"" + item.id + "\">Request Edit</button>") +
-            "</div>" +
-            "</td>" +
+            "<td>" + escapeHtml(student ? student.name : "Unknown Student") + "</td>" +
+            "<td>" + escapeHtml(getCriteriaCategoryLabel(criteriaItem)) + "</td>" +
+            "<td>" + escapeHtml(criteriaItem ? criteriaItem.title : "Removed Item") + "</td>" +
+            "<td><span class=\"status-pill " + getStatusClass(submission.status) + "\">" + escapeHtml(submission.status) + "</span></td>" +
+            "<td>" + marks.toFixed(1) + "</td>" +
             "</tr>"
           );
         })
         .join("")
-    : "<tr><td colspan=\"7\" class=\"empty-row\">No submissions yet.</td></tr>";
+    : "<tr><td colspan=\"5\" class=\"empty-row\">No submissions available</td></tr>";
 
-  const criteriaOptions = criteria
+  return (
+    "<section class=\"panel\">" +
+    "<div class=\"panel-head\"><h3>" + escapeHtml(title) + "</h3></div>" +
+    "<div class=\"table-wrap compact-table\"><table><thead><tr><th>Student</th><th>Category</th><th>Item</th><th>Status</th><th>Marks</th></tr></thead><tbody>" + rows + "</tbody></table></div>" +
+    "</section>"
+  );
+}
+
+function buildStudentCategoryProgress(studentSubmissions) {
+  const categories = getCriteriaCategories();
+
+  const categoryStates = categories.map((category) => {
+    const itemIds = new Set((category.items || []).map((item) => Number(item.id)));
+    const categorySubmissions = studentSubmissions.filter((submission) => itemIds.has(Number(submission.criteriaId)));
+    const hasSubmission = categorySubmissions.length > 0;
+
+    return {
+      id: category.id,
+      category: category.category,
+      completed: hasSubmission
+    };
+  });
+
+  const completedCount = categoryStates.filter((item) => item.completed).length;
+  const safeTotal = Math.max(1, categoryStates.length);
+  const percent = (completedCount / safeTotal) * 100;
+
+  return {
+    total: categoryStates.length,
+    completedCount: completedCount,
+    remainingCount: Math.max(0, categoryStates.length - completedCount),
+    percent: percent,
+    categories: categoryStates
+  };
+}
+
+function renderStudentProgressSection(progress) {
+  return (
+    "<section class=\"panel progress-overview\">" +
+    "<div class=\"panel-head\"><h3>Progress</h3></div>" +
+    "<p class=\"progress-line\"><strong>" + progress.completedCount + " out of " + progress.total + " categories completed</strong></p>" +
+    "<p class=\"muted\">Progress: " + progress.completedCount + " / " + progress.total + "</p>" +
+    "<div class=\"simple-progress-track\"><div class=\"simple-progress-fill\" style=\"width:" + progress.percent.toFixed(1) + "%\"></div></div>" +
+    "<div class=\"progress-pills\">" +
+    "<span class=\"progress-pill progress-pill-complete\">✔ Completed " + progress.completedCount + "</span>" +
+    "<span class=\"progress-pill progress-pill-remaining\">⬜ Remaining " + progress.remainingCount + "</span>" +
+    "</div>" +
+    "</section>"
+  );
+}
+
+function renderStudentChecklistSection(categories) {
+  const rows = categories
     .map((item) => {
-      const selected = editingSubmission && editingSubmission.criteriaId === item.id ? " selected" : "";
-      return "<option value=\"" + item.id + "\"" + selected + ">" + escapeHtml(item.name) + " (Max " + item.maxMarks + ")</option>";
+      const icon = item.completed ? "✔" : "⬜";
+      const action = item.completed
+        ? "<span class=\"check-done\">Done</span>"
+        : "<button type=\"button\" class=\"btn ghost mini-add-btn\" data-submit-category=\"" + escapeAttribute(item.id) + "\">＋</button>";
+
+      return (
+        "<li class=\"checklist-item\">" +
+        "<span class=\"check-symbol\">" + icon + "</span>" +
+        "<span class=\"check-label\">" + escapeHtml(item.category) + "</span>" +
+        action +
+        "</li>"
+      );
     })
     .join("");
 
   return (
+    "<section class=\"panel checklist-panel\">" +
+    "<div class=\"panel-head\"><h3>Category Checklist</h3></div>" +
+    "<ul class=\"checklist\">" + rows + "</ul>" +
+    "</section>"
+  );
+}
+
+function renderStudentDashboard() {
+  const studentSubmissions = submissions.filter((item) => item.studentId === state.currentStudentId);
+  const progress = buildStudentCategoryProgress(studentSubmissions);
+
+  return (
     "<section class=\"section-header\">" +
-    "<div>" +
-    "<h1>Student Dashboard</h1>" +
-    "<p class=\"muted\">" +
-    escapeHtml(student ? student.name : "Demo Student") +
-    " | " +
-    escapeHtml(student ? student.className : "Class") +
-    "</p>" +
-    "</div>" +
+    "<div><h1>Student Dashboard</h1><p class=\"muted\">See completed categories, remaining work, and your next activity.</p></div>" +
     "</section>" +
-
-    "<section class=\"cards-grid stats-grid\">" +
-    "<article class=\"stat-card\"><p>Total Submissions</p><h3>" + mySubmissions.length + "</h3></article>" +
-    "<article class=\"stat-card\"><p>Approved</p><h3>" + approvedCount + "</h3></article>" +
-    "<article class=\"stat-card\"><p>Total Marks</p><h3>" + totalMarks.toFixed(1) + "</h3></article>" +
-    "</section>" +
-
+    renderStudentProgressSection(progress) +
+    renderStudentChecklistSection(progress.categories) +
     "<section class=\"panel\">" +
-    "<div class=\"panel-head\">" +
-    "<h3>Submitted Activities</h3>" +
-    "<button type=\"button\" id=\"toggle-submission-form\" class=\"btn primary\">" +
-    (state.showSubmissionForm ? "Close Form" : "Add Submission") +
-    "</button>" +
+    "<div class=\"panel-head\"><h3>Quick Actions</h3></div>" +
+    "<div class=\"button-row\">" +
+    "<button type=\"button\" class=\"btn primary\" data-page-jump=\"submit\">✦ Submit New Activity</button>" +
+    "<button type=\"button\" class=\"btn ghost\" data-page-jump=\"submissions\">▦ View My Submissions</button>" +
     "</div>" +
-    "<div class=\"table-wrap\">" +
-    "<table>" +
-    "<thead><tr><th>Criteria</th><th>Description</th><th>Status</th><th>Suggested</th><th>Final</th><th>Remark</th><th>Action</th></tr></thead>" +
-    "<tbody>" + tableRows + "</tbody>" +
-    "</table>" +
-    "</div>" +
-    "</section>" +
+    "</section>"
+  );
+}
 
-    "<section class=\"panel " + (state.showSubmissionForm ? "" : "hidden") + "\">" +
-    "<h3>" + (editingSubmission ? "Edit Submission" : "New Submission") + "</h3>" +
+function renderStudentSubmitPage() {
+  const categories = getCriteriaCategories();
+  if (!categories.length) {
+    return (
+      "<section class=\"section-header\">" +
+      "<div><h1>Submit Activity</h1><p class=\"muted\">Add proof and details for teacher verification.</p></div>" +
+      "</section><section class=\"panel\"><p class=\"empty-state\">No criteria available. Please contact admin.</p></section>"
+    );
+  }
+
+  if (!state.selectedSubmissionCategoryId || !getCategoryById(state.selectedSubmissionCategoryId)) {
+    state.selectedSubmissionCategoryId = categories[0].id;
+  }
+
+  const selectedCategory = getCategoryById(state.selectedSubmissionCategoryId) || categories[0];
+  const categoryItems = selectedCategory.items || [];
+  const selectedItemInCategory = categoryItems.some((item) => Number(item.id) === Number(state.selectedSubmissionItemId));
+  if (!state.selectedSubmissionItemId || !selectedItemInCategory) {
+    state.selectedSubmissionItemId = categoryItems[0] ? categoryItems[0].id : "";
+  }
+
+  const selectedItem = getCriteriaById(state.selectedSubmissionItemId);
+
+  const categoryOptions = categories
+    .map((category) => {
+      const selected = category.id === state.selectedSubmissionCategoryId ? " selected" : "";
+      return "<option value=\"" + category.id + "\"" + selected + ">" + escapeHtml(category.category) + "</option>";
+    })
+    .join("");
+
+  const itemOptions = categoryItems
+    .map((item) => {
+      const selected = item.id === state.selectedSubmissionItemId ? " selected" : "";
+      return "<option value=\"" + item.id + "\"" + selected + ">" + escapeHtml(item.title) + " (" + escapeHtml(getCriteriaRuleSummary(item)) + ")</option>";
+    })
+    .join("");
+
+  const dynamicInput = selectedItem ? renderStudentEvidenceInput(selectedItem) : "";
+  const criteriaRule = selectedItem ? renderCriteriaRuleCard(selectedItem) : "";
+
+  return (
+    "<section class=\"section-header\">" +
+    "<div><h1>Submit Activity</h1><p class=\"muted\">Select category and item to submit activity evidence.</p></div>" +
+    "</section>" +
+    "<section class=\"panel\">" +
     "<form id=\"student-submission-form\" class=\"stack-form two-col\">" +
-    "<div class=\"field\">" +
-    "<label for=\"submission-criteria\">Select Criteria</label>" +
-    "<select id=\"submission-criteria\" name=\"criteriaId\" required>" + criteriaOptions + "</select>" +
-    "</div>" +
-    "<div class=\"field\">" +
-    "<label for=\"submission-proof\">Upload Proof</label>" +
-    "<input id=\"submission-proof\" name=\"proof\" type=\"file\" " + (editingSubmission ? "" : "required") + " />" +
-    "</div>" +
-    "<div class=\"field\">" +
-    "<label for=\"submission-proof-link\">Proof Link (optional)</label>" +
-    "<input id=\"submission-proof-link\" name=\"proofLink\" type=\"url\" placeholder=\"https://...\" value=\"" +
-    escapeAttribute(editingSubmission ? editingSubmission.proofLink : "") + "\" />" +
-    "</div>" +
-    "<div class=\"field full-span\">" +
-    "<label for=\"submission-description\">Description</label>" +
-    "<textarea id=\"submission-description\" name=\"description\" placeholder=\"Describe the activity\" required>" +
-    escapeHtml(editingSubmission ? editingSubmission.description : "") +
-    "</textarea>" +
-    "</div>" +
-    "<div class=\"button-row full-span\">" +
-    "<button type=\"submit\" class=\"btn primary\">" + (editingSubmission ? "Update" : "Submit") + "</button>" +
-    (editingSubmission ? "<button type=\"button\" id=\"cancel-student-edit\" class=\"btn ghost\">Cancel</button>" : "") +
-    "</div>" +
+    "<div class=\"field\"><label for=\"submission-category\">Category</label><select id=\"submission-category\" name=\"categoryId\" required>" + categoryOptions + "</select></div>" +
+    "<div class=\"field\"><label for=\"submission-criteria\">Item</label><select id=\"submission-criteria\" name=\"criteriaId\" required>" + itemOptions + "</select></div>" +
+    criteriaRule +
+    dynamicInput +
+    "<div class=\"field\"><label for=\"submission-proof\">Upload Proof</label><input id=\"submission-proof\" name=\"proof\" type=\"file\" required /></div>" +
+    "<div class=\"field full-span\"><label for=\"submission-description\">Description</label><textarea id=\"submission-description\" name=\"description\" placeholder=\"Describe the activity\" required></textarea></div>" +
+    "<div class=\"button-row full-span\"><button type=\"submit\" class=\"btn primary\">⬆ Submit</button></div>" +
     "</form>" +
     "</section>"
   );
 }
 
-function renderLeaderDashboard() {
-  const allowedStudents = students.filter((item) => item.className === state.leaderClassName);
-  const allowedStudentIds = new Set(allowedStudents.map((item) => item.id));
-  const allSubmissions = submissions
-    .filter((item) => allowedStudentIds.has(item.studentId))
+function renderCriteriaRuleCard(criteriaItem) {
+  return (
+    "<div class=\"criteria-rule-card full-span\">" +
+    "<div><span class=\"criteria-chip\">" + escapeHtml(getCriteriaTypeLabel(criteriaItem.type)) + "</span><h3>" + escapeHtml(criteriaItem.title) + "</h3></div>" +
+    "<p>" + escapeHtml(getCriteriaRuleSummary(criteriaItem)) + "</p>" +
+    "</div>"
+  );
+}
+
+function renderStudentEvidenceInput(criteriaItem) {
+  if (criteriaItem.type === "count") {
+    return "<div class=\"field\"><label for=\"submission-count\">Count</label><input id=\"submission-count\" name=\"countValue\" type=\"number\" min=\"1\" step=\"1\" required /><p class=\"muted\">Marks = count x " + criteriaItem.marks + "</p></div>";
+  }
+
+  if (criteriaItem.type === "negative") {
+    return "<div class=\"field\"><label for=\"submission-count\">Count</label><input id=\"submission-count\" name=\"countValue\" type=\"number\" min=\"1\" step=\"1\" required /><p class=\"muted\">Penalty = count x " + criteriaItem.marks + "</p></div>";
+  }
+
+  if (criteriaItem.type === "range") {
+    const rangeText = (criteriaItem.rules || [])
+      .map((rule) => {
+        return rule.min + "-" + rule.max + ": " + rule.marks;
+      })
+      .join(" | ");
+
+    return "<div class=\"field\"><label for=\"submission-range\">Percentage / Value</label><input id=\"submission-range\" name=\"rangeValue\" type=\"number\" min=\"0\" max=\"100\" step=\"0.01\" required /><p class=\"muted\">Ranges: " + escapeHtml(rangeText) + "</p></div>";
+  }
+
+  if (criteriaItem.type === "boolean") {
+    return "<div class=\"field\"><label for=\"submission-boolean\">Eligibility</label><select id=\"submission-boolean\" name=\"booleanValue\" required><option value=\"yes\">Yes</option><option value=\"no\">No</option></select><p class=\"muted\">Marks awarded only when set to Yes.</p></div>";
+  }
+
+  return "<div class=\"field\"><label>Marks Rule</label><input type=\"text\" value=\"Fixed marks: " + criteriaItem.marks + "\" readonly /></div>";
+}
+
+function renderStudentSubmissionsPage() {
+  const mySubmissions = submissions
+    .filter((item) => item.studentId === state.currentStudentId)
     .sort((a, b) => b.id - a.id);
-  const editingSubmission = state.editingSubmissionId ? submissions.find(item => item.id === state.editingSubmissionId) : null;
-  const filters = state.leaderFilters;
 
-  const filteredSubmissions = allSubmissions.filter((item) => {
-    const student = getStudentById(item.studentId);
-    const itemCriteria = getCriteriaById(item.criteriaId);
-    const matchesStatus = filters.status === "all" || item.status === filters.status;
-    const matchesStudent = filters.studentId === "all" || String(item.studentId) === filters.studentId;
-    const matchesCriteria = filters.criteriaId === "all" || String(item.criteriaId) === filters.criteriaId;
-    const matchesProofType = filters.proofType === "all" || item.proofType === filters.proofType;
-    const query = filters.query.trim().toLowerCase();
-    const haystack = [
-      student ? student.name : "",
-      itemCriteria ? itemCriteria.name : "",
-      item.description,
-      item.status,
-      item.proof,
-      item.proofLink
-    ].join(" ").toLowerCase();
-    const matchesQuery = !query || haystack.indexOf(query) > -1;
-    return matchesStatus && matchesStudent && matchesCriteria && matchesProofType && matchesQuery;
-  });
-
-  const statusSet = new Set(allSubmissions.map((item) => item.status));
-  const statusOptions = ["<option value=\"all\">All Statuses</option>"]
-    .concat(Array.from(statusSet).sort().map((status) => {
-      const selected = filters.status === status ? " selected" : "";
-      return "<option value=\"" + escapeAttribute(status) + "\"" + selected + ">" + escapeHtml(status) + "</option>";
-    }))
-    .join("");
-
-  const studentFilterOptions = ["<option value=\"all\">All Students</option>"]
-    .concat(allowedStudents.map((item) => {
-      const selected = filters.studentId === String(item.id) ? " selected" : "";
-      return "<option value=\"" + item.id + "\"" + selected + ">" + escapeHtml(item.name) + "</option>";
-    }))
-    .join("");
-
-  const criteriaFilterOptions = ["<option value=\"all\">All Criteria</option>"]
-    .concat(criteria.map((item) => {
-      const selected = filters.criteriaId === String(item.id) ? " selected" : "";
-      return "<option value=\"" + item.id + "\"" + selected + ">" + escapeHtml(item.name) + "</option>";
-    }))
-    .join("");
-
-  const tableRows = filteredSubmissions.length
-    ? filteredSubmissions
+  const rows = mySubmissions.length
+    ? mySubmissions
         .map((item) => {
-          const student = getStudentById(item.studentId);
-          const itemCriteria = getCriteriaById(item.criteriaId);
+          const criteriaItem = getCriteriaById(item.criteriaId);
+          const preview = calculateMarksByRule(item, criteriaItem);
           return (
             "<tr>" +
-            "<td>" + escapeHtml(student ? student.name : "Unknown") + "</td>" +
-            "<td>" + escapeHtml(itemCriteria ? itemCriteria.name : "Removed Criteria") + "</td>" +
+            "<td>" + escapeHtml(getCriteriaCategoryLabel(criteriaItem)) + "</td>" +
+            "<td>" + escapeHtml(criteriaItem ? criteriaItem.title : "Removed Item") + "</td>" +
+            "<td>" + escapeHtml(formatEvidenceSummary(item, criteriaItem)) + "</td>" +
             "<td>" + escapeHtml(item.description) + "</td>" +
             "<td><span class=\"status-pill " + getStatusClass(item.status) + "\">" + escapeHtml(item.status) + "</span></td>" +
-            "<td>" +
-            "<input type=\"number\" min=\"0\" step=\"0.5\" data-leader-suggested-marks=\"" + item.id + "\" value=\"" +
-            (Number.isFinite(item.suggestedMarks) ? item.suggestedMarks : "") + "\" />" +
-            "</td>" +
+            "<td>" + preview.toFixed(1) + "</td>" +
             "<td>" + (Number.isFinite(item.marks) ? item.marks : "-") + "</td>" +
-            "<td>" +
-            "<div class=\"button-row\">" +
-            "<button type=\"button\" class=\"btn success\" data-leader-status=\"Approved\" data-id=\"" + item.id + "\">Approve</button>" +
-            "<button type=\"button\" class=\"btn warn\" data-leader-status=\"Correction Requested\" data-id=\"" + item.id + "\">Correction</button>" +
-            "<button type=\"button\" class=\"btn ghost\" data-leader-status=\"Edit Allowed\" data-id=\"" + item.id + "\">Allow Edit</button>" +
-            "<button type=\"button\" class=\"btn ghost\" data-leader-edit=\"" + item.id + "\">Edit</button>" +
-            "<button type=\"button\" class=\"btn danger\" data-leader-delete=\"" + item.id + "\">Delete</button>" +
-            "</div>" +
-            "</td>" +
             "</tr>"
           );
         })
         .join("")
-      : "<tr><td colspan=\"7\" class=\"empty-row\">No submissions match current filters.</td></tr>";
-
-  const studentOptions = allowedStudents
-    .map((item) => "<option value=\"" + item.id + "\"" + (editingSubmission && editingSubmission.studentId === item.id ? " selected" : "") + ">" + escapeHtml(item.name) + "</option>")
-    .join("");
-
-  const criteriaOptions = criteria
-    .map((item) => "<option value=\"" + item.id + "\"" + (editingSubmission && editingSubmission.criteriaId === item.id ? " selected" : "") + ">" + escapeHtml(item.name) + " (Max " + item.maxMarks + ")</option>")
-    .join("");
+    : "<tr><td colspan=\"7\" class=\"empty-row\">No submissions yet</td></tr>";
 
   return (
     "<section class=\"section-header\">" +
-    "<div>" +
-    "<h1>Class Leader Dashboard</h1>" +
-    "<p class=\"muted\">Class scope: " + escapeHtml(state.leaderClassName || "Not assigned") + ". Suggested marks are provisional.</p>" +
-    "</div>" +
+    "<div><h1>My Submissions</h1><p class=\"muted\">Live status of all activities you submitted.</p></div>" +
     "</section>" +
-
     "<section class=\"panel\">" +
-    "<div class=\"panel-head\">" +
-    "<h3>All Submissions</h3>" +
-    "<button type=\"button\" id=\"toggle-leader-form\" class=\"btn primary\">" +
-    (state.showLeaderSubmissionForm ? "Close Form" : "Add Submission") +
-    "</button>" +
-    "</div>" +
-    "<form id=\"leader-filters\" class=\"stack-form two-col\">" +
-    "<div class=\"field\">" +
-    "<label for=\"leader-filter-status\">Status</label>" +
-    "<select id=\"leader-filter-status\" name=\"status\">" + statusOptions + "</select>" +
-    "</div>" +
-    "<div class=\"field\">" +
-    "<label for=\"leader-filter-student\">Student</label>" +
-    "<select id=\"leader-filter-student\" name=\"studentId\">" + studentFilterOptions + "</select>" +
-    "</div>" +
-    "<div class=\"field\">" +
-    "<label for=\"leader-filter-criteria\">Criteria</label>" +
-    "<select id=\"leader-filter-criteria\" name=\"criteriaId\">" + criteriaFilterOptions + "</select>" +
-    "</div>" +
-    "<div class=\"field\">" +
-    "<label for=\"leader-filter-proof\">Proof Type</label>" +
-    "<select id=\"leader-filter-proof\" name=\"proofType\">" +
-    "<option value=\"all\"" + (filters.proofType === "all" ? " selected" : "") + ">All Proof Types</option>" +
-    "<option value=\"file\"" + (filters.proofType === "file" ? " selected" : "") + ">File</option>" +
-    "<option value=\"link\"" + (filters.proofType === "link" ? " selected" : "") + ">Link</option>" +
-    "</select>" +
-    "</div>" +
-    "<div class=\"field full-span\">" +
-    "<label for=\"leader-filter-query\">Search</label>" +
-    "<input id=\"leader-filter-query\" name=\"query\" type=\"text\" placeholder=\"Search student, criteria, description, proof...\" value=\"" + escapeAttribute(filters.query) + "\" />" +
-    "</div>" +
-    "<div class=\"button-row full-span\">" +
-    "<button type=\"button\" id=\"leader-filter-clear\" class=\"btn ghost\">Clear Filters</button>" +
-    "</div>" +
-    "</form>" +
     "<div class=\"table-wrap\">" +
-    "<table>" +
-    "<thead><tr><th>Student</th><th>Criteria</th><th>Description</th><th>Status</th><th>Suggested</th><th>Final</th><th>Actions</th></tr></thead>" +
-    "<tbody>" + tableRows + "</tbody>" +
-    "</table>" +
+    "<table><thead><tr><th>◈ Category</th><th>◌ Item</th><th>▣ Evidence</th><th>✎ Description</th><th>◔ Status</th><th>Rule Marks</th><th>Final Marks</th></tr></thead><tbody>" + rows + "</tbody></table>" +
     "</div>" +
-    "</section>" +
-
-    "<section class=\"panel " + (state.showLeaderSubmissionForm ? "" : "hidden") + "\">" +
-    "<h3>" + (editingSubmission ? "Edit Submission" : "New Submission") + "</h3>" +
-    "<form id=\"leader-submission-form\" class=\"stack-form two-col\">" +
-    "<div class=\"field\">" +
-    "<label for=\"leader-student\">Select Student</label>" +
-    "<select id=\"leader-student\" name=\"studentId\" required>" + studentOptions + "</select>" +
-    "</div>" +
-    "<div class=\"field\">" +
-    "<label for=\"leader-criteria\">Select Criteria</label>" +
-    "<select id=\"leader-criteria\" name=\"criteriaId\" required>" + criteriaOptions + "</select>" +
-    "</div>" +
-    "<div class=\"field full-span\">" +
-    "<label for=\"leader-description\">Description</label>" +
-    "<textarea id=\"leader-description\" name=\"description\" placeholder=\"Describe the activity\" required>" + escapeAttribute(editingSubmission ? editingSubmission.description : "") + "</textarea>" +
-    "</div>" +
-    "<div class=\"field\">" +
-    "<label for=\"leader-proof-link\">Proof Link (optional)</label>" +
-    "<input id=\"leader-proof-link\" name=\"proofLink\" type=\"url\" placeholder=\"https://...\" value=\"" + escapeAttribute(editingSubmission ? editingSubmission.proofLink : "") + "\" />" +
-    "</div>" +
-    "<div class=\"button-row full-span\">" +
-    "<button type=\"submit\" class=\"btn primary\">Save Submission</button>" +
-    (editingSubmission ? "<button type=\"button\" id=\"cancel-leader-edit\" class=\"btn ghost\">Cancel Edit</button>" : "") +
-    "</div>" +
-    "</form>" +
     "</section>"
   );
 }
 
 function renderTeacherDashboard() {
+  const metrics = buildSummaryMetrics(submissions);
+
+  return (
+    "<section class=\"section-header\">" +
+    "<div><h1>Teacher Dashboard</h1><p class=\"muted\">Monitor queue and move submissions through verification.</p></div>" +
+    "</section>" +
+    renderDashboardCards(metrics) +
+    renderStatusProgress("Verification Queue", metrics) +
+    renderRecentActivityPanel(submissions, "Latest Verification Items", 5) +
+    "<section class=\"panel\">" +
+    "<div class=\"button-row\">" +
+    "<button type=\"button\" class=\"btn primary\" data-page-jump=\"verification\">✓ Open Verification Desk</button>" +
+    "</div>" +
+    "</section>"
+  );
+}
+
+function renderTeacherVerificationPage() {
   const reviewQueue = [...submissions].sort((a, b) => b.id - a.id);
 
   const cards = reviewQueue.length
     ? reviewQueue
         .map((item) => {
           const student = getStudentById(item.studentId);
-          const itemCriteria = getCriteriaById(item.criteriaId);
+          const criteriaItem = getCriteriaById(item.criteriaId);
+          const previewMarks = calculateMarksByRule(item, criteriaItem);
+
           return (
             "<article class=\"submission-card\">" +
-            "<div class=\"submission-head\">" +
-            "<h4>" + escapeHtml(student ? student.name : "Unknown Student") + "</h4>" +
-            "<span class=\"status-pill " + getStatusClass(item.status) + "\">" + escapeHtml(item.status) + "</span>" +
-            "</div>" +
-
+            "<div class=\"submission-head\"><h4>" + escapeHtml(student ? student.name : "Unknown Student") + "</h4><span class=\"status-pill " + getStatusClass(item.status) + "\">" + escapeHtml(item.status) + "</span></div>" +
             "<div class=\"meta-list\">" +
             "<p><strong>Class:</strong> " + escapeHtml(student ? student.className : "-") + "</p>" +
-            "<p><strong>Criteria:</strong> " + escapeHtml(itemCriteria ? itemCriteria.name : "Removed Criteria") + "</p>" +
+            "<p><strong>Category:</strong> " + escapeHtml(getCriteriaCategoryLabel(criteriaItem)) + "</p>" +
+            "<p><strong>Item:</strong> " + escapeHtml(criteriaItem ? criteriaItem.title : "Removed Item") + "</p>" +
+            "<p><strong>Rule Type:</strong> " + escapeHtml(getCriteriaTypeLabel(criteriaItem ? criteriaItem.type : "fixed")) + "</p>" +
+            "<p><strong>Evidence:</strong> " + escapeHtml(formatEvidenceSummary(item, criteriaItem)) + "</p>" +
+            "<p><strong>Rule Marks Preview:</strong> " + previewMarks.toFixed(1) + "</p>" +
             "<p><strong>Description:</strong> " + escapeHtml(item.description) + "</p>" +
             "<p><strong>Proof:</strong> " + escapeHtml(item.proof || "-") + "</p>" +
             "</div>" +
-
-            "<div class=\"field\">" +
-            "<label>Teacher Remark</label>" +
-            "<input type=\"text\" data-remark-input=\"" + item.id + "\" value=\"" + escapeAttribute(item.remarks || "") + "\" placeholder=\"Add a remark\" />" +
-            "</div>" +
-
+            "<div class=\"field\"><label>Teacher Remark</label><input type=\"text\" data-remark-input=\"" + item.id + "\" value=\"" + escapeAttribute(item.remarks || "") + "\" placeholder=\"Add a remark\" /></div>" +
             "<div class=\"button-row\">" +
-            "<button type=\"button\" class=\"btn success\" data-teacher-action=\"Approved\" data-id=\"" + item.id + "\">Approve</button>" +
-            "<button type=\"button\" class=\"btn danger\" data-teacher-action=\"Rejected\" data-id=\"" + item.id + "\">Reject</button>" +
-            "<button type=\"button\" class=\"btn warn\" data-teacher-action=\"Correction Requested\" data-id=\"" + item.id + "\">Request Correction</button>" +
+            "<button type=\"button\" class=\"btn success\" data-teacher-action=\"Approved\" data-id=\"" + item.id + "\">✓ Approve</button>" +
+            "<button type=\"button\" class=\"btn danger\" data-teacher-action=\"Rejected\" data-id=\"" + item.id + "\">✕ Reject</button>" +
+            "<button type=\"button\" class=\"btn warn\" data-teacher-action=\"Correction Requested\" data-id=\"" + item.id + "\">↺ Request Correction</button>" +
             "</div>" +
             "</article>"
           );
         })
         .join("")
-    : "<div class=\"panel\"><p class=\"empty-state\">No submissions available for review.</p></div>";
+    : "<div class=\"panel\"><p class=\"empty-state\">No submissions yet</p></div>";
 
   return (
     "<section class=\"section-header\">" +
-    "<div>" +
-    "<h1>Class Teacher Dashboard</h1>" +
-    "<p class=\"muted\">Review student submissions and update status with remarks.</p>" +
-    "</div>" +
+    "<div><h1>Verification</h1><p class=\"muted\">Approve, reject, or request corrections with remarks.</p></div>" +
     "</section>" +
     "<section class=\"submission-grid\">" + cards + "</section>"
   );
 }
 
 function renderEvaluatorDashboard() {
-  // Department selection UI
-  const departments = getDepartments();
-  let deptButtons = departments.map(dept => {
-    const active = state.selectedDepartment === dept ? 'active' : '';
-    return `<button type="button" class="btn ghost ${active}" data-eval-dept="${dept}">${escapeHtml(dept)}</button>`;
-  }).join(' ');
+  const approved = submissions.filter((item) => item.status === "Approved");
+  const verified = approved.filter((item) => Boolean(item.evaluatorVerified));
+  const pendingVerification = approved.length - verified.length;
 
-  let content = `<section class="section-header">
-    <div>
-      <h1>Evaluation Team Dashboard</h1>
-      <p class="muted">Select a department to view students and assign marks.</p>
-      <div class="button-row">${deptButtons}</div>
-    </div>
-  </section>`;
+  const metrics = {
+    total: approved.length,
+    approved: verified.length,
+    pending: pendingVerification,
+    rejected: 0,
+    correction: 0,
+    score: approved.reduce((sum, item) => sum + safeMark(getSubmissionEffectiveMarks(item)), 0),
+    maxScore: approved.reduce((sum, item) => sum + getSubmissionScoreCapacity(item), 0)
+  };
 
-  if (!state.selectedDepartment) {
-    content += '<section class="panel"><p class="empty-state">Select a department to view students.</p></section>';
-    return content;
-  }
+  return (
+    "<section class=\"section-header\">" +
+    "<div><h1>Evaluator Dashboard</h1><p class=\"muted\">Review approved submissions and finalize marks.</p></div>" +
+    "</section>" +
+    renderDashboardCards(metrics) +
+    renderStatusProgress("Verification Progress", {
+      total: metrics.total,
+      approved: metrics.approved,
+      pending: metrics.pending,
+      rejected: 0,
+      correction: 0
+    }) +
+    renderRecentActivityPanel(approved, "Approved Submissions for Evaluation", 5) +
+    "<section class=\"panel\"><div class=\"button-row\"><button type=\"button\" class=\"btn primary\" data-page-jump=\"evaluation\">◌ Go to Evaluation</button></div></section>"
+  );
+}
 
-  // Show students in selected department
-  const studentsInDept = getStudentsByDepartment(state.selectedDepartment);
-  if (!studentsInDept.length) {
-    content += '<section class="panel"><p class="empty-state">No students in this department.</p></section>';
-    return content;
-  }
+function renderEvaluatorEvaluationPage() {
+  const approvedSubmissions = submissions
+    .filter((item) => item.status === "Approved")
+    .sort((a, b) => b.id - a.id);
 
-  // For each student, show their approved submissions for marking
-  studentsInDept.forEach(student => {
-    const studentSubs = submissions.filter(item => item.studentId === student.id && item.status === "Approved");
-    if (!studentSubs.length) {
-      content += `<section class="panel"><h3>${escapeHtml(student.name)} (${escapeHtml(student.className)})</h3><p class="empty-state">No approved submissions for this student.</p></section>`;
-      return;
+  const pendingSubmissions = approvedSubmissions.filter((item) => !Boolean(item.evaluatorVerified));
+  const completedSubmissions = approvedSubmissions.filter((item) => Boolean(item.evaluatorVerified));
+
+  return (
+    "<section class=\"section-header\">" +
+    "<div><h1>Evaluation</h1><p class=\"muted\">One action per item. Verify pending submissions and review completed ones.</p></div>" +
+    "</section>" +
+    renderEvaluatorQueueSection("Pending", "pending", pendingSubmissions, "No pending submissions right now.") +
+    renderEvaluatorQueueSection("Completed", "completed", completedSubmissions, "No completed submissions yet.")
+  );
+}
+
+function renderEvaluatorQueueSection(title, sectionType, items, emptyMessage) {
+  const sectionClass = sectionType === "completed" ? "eval-section eval-section-completed" : "eval-section eval-section-pending";
+  const badgeClass = sectionType === "completed" ? "eval-title-badge eval-title-badge-completed" : "eval-title-badge eval-title-badge-pending";
+  const cards = items.length
+    ? items.map((item) => renderEvaluatorQueueCard(item, sectionType)).join("")
+    : "<p class=\"empty-state\">" + escapeHtml(emptyMessage) + "</p>";
+
+  return (
+    "<section class=\"panel " + sectionClass + "\">" +
+    "<div class=\"eval-section-head\">" +
+    "<div><span class=\"" + badgeClass + "\">" + escapeHtml(title) + "</span><h3>" + escapeHtml(title) + " Submissions</h3></div>" +
+    "<p class=\"muted\">" + items.length + " item" + (items.length === 1 ? "" : "s") + "</p>" +
+    "</div>" +
+    (items.length ? "<div class=\"submission-grid eval-grid\">" + cards + "</div>" : cards) +
+    "</section>"
+  );
+}
+
+function renderEvaluatorQueueCard(item, sectionType) {
+  const criteriaItem = getCriteriaById(item.criteriaId);
+  const student = getStudentById(item.studentId);
+  const autoMarks = calculateMarksByRule(item, criteriaItem);
+  const currentMarks = Number.isFinite(item.marks) ? item.marks : "";
+  const minMarks = getCriteriaMinMarks(criteriaItem, item);
+  const maxMarks = getCriteriaMaxMarks(criteriaItem, item);
+  const transition = state.evaluatorTransition;
+  let transitionClass = "";
+
+  if (transition && transition.submissionId === item.id) {
+    if (transition.direction === "to-completed" && sectionType === "completed") {
+      transitionClass = " eval-card-enter-completed";
+    } else if (transition.direction === "to-pending" && sectionType === "pending") {
+      transitionClass = " eval-card-enter-pending";
     }
-    content += `<section class="panel"><h3>${escapeHtml(student.name)} (${escapeHtml(student.className)})</h3>`;
-    studentSubs.forEach(item => {
-      const itemCriteria = getCriteriaById(item.criteriaId);
-      const maxMarks = itemCriteria ? itemCriteria.maxMarks : 0;
-      const currentMarks = Number.isFinite(item.marks) ? item.marks : "";
-      content += `<div class="submission-card">
-        <div class="submission-head">
-          <h4>${escapeHtml(itemCriteria ? itemCriteria.name : "Removed Criteria")}</h4>
-          <span class="status-pill status-approved">Approved</span>
-        </div>
-        <div class="meta-list">
-          <p><strong>Description:</strong> ${escapeHtml(item.description)}</p>
-          <p><strong>Proof:</strong> ${escapeHtml(item.proof || "-")}</p>
-          <p><strong>Max Marks:</strong> ${maxMarks}</p>
-        </div>
-        <form class="stack-form" data-mark-form="${item.id}">
-          <div class="field">
-            <label>Enter Marks</label>
-            <input name="marks" type="number" min="0" max="${maxMarks}" step="0.5" required value="${currentMarks}" />
-          </div>
-          <button type="submit" class="btn primary">Save Marks</button>
-        </form>
-      </div>`;
-    });
-    content += '</section>';
-  });
-  return content;
+  }
+
+  const actionHtml = sectionType === "pending"
+    ? "<div class=\"field eval-manual-field\"><label for=\"eval-manual-" + item.id + "\">Manual Marks (Optional)</label><input id=\"eval-manual-" + item.id + "\" data-evaluator-manual=\"" + item.id + "\" type=\"number\" min=\"" + minMarks + "\" max=\"" + maxMarks + "\" step=\"0.5\" placeholder=\"Leave blank to use auto marks\" value=\"" + escapeAttribute(currentMarks === autoMarks ? "" : currentMarks) + "\" /></div>" +
+      "<div class=\"button-row\"><button type=\"button\" class=\"btn primary full\" data-evaluator-verify-save=\"" + item.id + "\">✔ Verify &amp; Save</button></div>"
+    : "<div class=\"meta-list\"><p><strong>Status:</strong> Completed</p><p><strong>Marks:</strong> " + safeMark(getSubmissionEffectiveMarks(item)).toFixed(1) + "</p></div>" +
+      "<div class=\"button-row\"><button type=\"button\" class=\"btn ghost\" data-evaluator-edit=\"" + item.id + "\">Edit</button></div>";
+
+  return (
+    "<article class=\"submission-card eval-card eval-card-" + sectionType + transitionClass + "\">" +
+    "<div class=\"submission-head\"><h4>" + escapeHtml(criteriaItem ? criteriaItem.title : "Removed Item") + "</h4><span class=\"status-pill " + (sectionType === "completed" ? "status-approved" : "status-pending") + "\">" + (sectionType === "completed" ? "Completed" : "Pending") + "</span></div>" +
+    "<div class=\"meta-list\">" +
+    "<p><strong>Student:</strong> " + escapeHtml(student ? student.name : "Unknown Student") + "</p>" +
+    "<p><strong>Class:</strong> " + escapeHtml(student ? student.className : "-") + "</p>" +
+    "<p><strong>Category:</strong> " + escapeHtml(getCriteriaCategoryLabel(criteriaItem)) + "</p>" +
+    "<p><strong>Description:</strong> " + escapeHtml(item.description) + "</p>" +
+    "<p><strong>Proof:</strong> " + escapeHtml(item.proof || "-") + "</p>" +
+    "<p><strong>Auto Marks:</strong> " + autoMarks.toFixed(1) + "</p>" +
+    "</div>" +
+    actionHtml +
+    "</article>"
+  );
 }
 
 function renderAdminDashboard() {
-  const editingCriteria = criteria.find((item) => item.id === state.editingCriteriaId) || null;
+  const metrics = buildSummaryMetrics(submissions);
+  return (
+    "<section class=\"section-header\"><div><h1>Admin Dashboard</h1><p class=\"muted\">Overview of criteria, submissions, and yearly setup.</p></div></section>" +
+    renderDashboardCards(metrics) +
+    renderStatusProgress("Workflow Status", metrics) +
+    "<section class=\"chart-card\"><h3>System Snapshot</h3><div class=\"meta-list\"><p><strong>Total Categories:</strong> " + criteriaCatalog.length + "</p><p><strong>Total Criteria Items:</strong> " + getAllCriteriaItems().length + "</p><p><strong>Academic Year:</strong> " + escapeHtml(state.selectedAcademicYear) + "</p></div></section>"
+  );
+}
+
+function renderAdminCriteriaPage() {
+  const categories = getCriteriaCategories();
+  const editingItem = state.editingCriteriaItemId ? getCriteriaById(state.editingCriteriaItemId) : null;
+
   const yearOptions = academicYears
     .map((year) => {
       const selected = year === state.selectedAcademicYear ? " selected" : "";
@@ -792,109 +1084,78 @@ function renderAdminDashboard() {
     })
     .join("");
 
-  const criteriaRows = criteria.length
-    ? criteria
-        .map((item) => {
-          return (
-            "<tr>" +
-            "<td>" + escapeHtml(item.name) + "</td>" +
-            "<td>" + item.maxMarks + "</td>" +
-            "<td>" +
-            "<div class=\"button-row\">" +
-            "<button type=\"button\" class=\"btn ghost\" data-criteria-edit=\"" + item.id + "\">Edit</button>" +
-            "<button type=\"button\" class=\"btn danger\" data-criteria-delete=\"" + item.id + "\">Delete</button>" +
-            "</div>" +
-            "</td>" +
-            "</tr>"
-          );
-        })
-        .join("")
-    : "<tr><td colspan=\"3\" class=\"empty-row\">No criteria found.</td></tr>";
+  const categoryOptions = categories
+    .map((category) => {
+      const selected = editingItem && category.category === editingItem.category ? " selected" : "";
+      return "<option value=\"" + category.id + "\"" + selected + ">" + escapeHtml(category.category) + "</option>";
+    })
+    .join("");
 
-  return (
-    "<section class=\"section-header\">" +
-    "<div>" +
-    "<h1>Admin Panel</h1>" +
-    "<p class=\"muted\">Manage criteria and scoring setup for each academic year.</p>" +
-    "</div>" +
-    "</section>" +
+  const fixedSelected = !editingItem || editingItem.type === "fixed" ? " selected" : "";
+  const countSelected = editingItem && editingItem.type === "count" ? " selected" : "";
+  const rangeSelected = editingItem && editingItem.type === "range" ? " selected" : "";
+  const negativeSelected = editingItem && editingItem.type === "negative" ? " selected" : "";
 
-    "<section class=\"cards-grid two-panel-grid\">" +
-    "<article class=\"panel\">" +
-    "<h3>Academic Year</h3>" +
-    "<div class=\"field\">" +
-    "<label for=\"academic-year-select\">Select Session</label>" +
-    "<select id=\"academic-year-select\">" + yearOptions + "</select>" +
-    "</div>" +
-    "</article>" +
-
-    "<article class=\"panel\">" +
-    "<h3>" + (editingCriteria ? "Edit Criteria" : "Add Criteria") + "</h3>" +
-    "<form id=\"criteria-form\" class=\"stack-form\">" +
-    "<div class=\"field\">" +
-    "<label for=\"criteria-title\">Title</label>" +
-    "<input id=\"criteria-title\" name=\"title\" type=\"text\" required value=\"" + escapeAttribute(editingCriteria ? editingCriteria.name : "") + "\" />" +
-    "</div>" +
-    "<div class=\"field\">" +
-    "<label for=\"criteria-max\">Max Marks</label>" +
-    "<input id=\"criteria-max\" name=\"maxMarks\" type=\"number\" min=\"1\" required value=\"" + (editingCriteria ? editingCriteria.maxMarks : "") + "\" />" +
-    "</div>" +
-    "<div class=\"button-row\">" +
-    "<button type=\"submit\" class=\"btn primary\">" + (editingCriteria ? "Update Criteria" : "Add Criteria") + "</button>" +
-    "<button type=\"button\" id=\"cancel-edit-criteria\" class=\"btn ghost " + (editingCriteria ? "" : "hidden") + "\">Cancel</button>" +
-    "</div>" +
-    "</form>" +
-    "</article>" +
-    "</section>" +
-
-    "<section class=\"panel\">" +
-    "<h3>Criteria List</h3>" +
-    "<div class=\"table-wrap\">" +
-    "<table>" +
-    "<thead><tr><th>Title</th><th>Max Marks</th><th>Actions</th></tr></thead>" +
-    "<tbody>" + criteriaRows + "</tbody>" +
-    "</table>" +
-    "</div>" +
-    "</section>"
-  );
-}
-
-function renderHodDashboard() {
-  const performance = buildClassPerformance().sort((a, b) => b.totalScore - a.totalScore);
-
-  const rows = performance
-    .map((entry) => {
-      return (
-        "<tr>" +
-        "<td>" + escapeHtml(entry.className) + "</td>" +
-        "<td>" + entry.totalScore.toFixed(1) + "</td>" +
-        "<td>" + entry.normalizedScore.toFixed(1) + "</td>" +
-        "<td>" + entry.percentile.toFixed(1) + "</td>" +
-        "<td><strong>" + entry.grade + "</strong></td>" +
-        "</tr>"
-      );
+  const groupedRows = categories
+    .map((category) => {
+      const itemRows = (category.items || []).length
+        ? category.items
+            .map((item) => {
+              return (
+                "<tr>" +
+                "<td>" + escapeHtml(category.category) + "</td>" +
+                "<td>" + escapeHtml(item.title) + "</td>" +
+                "<td>" + escapeHtml(getCriteriaTypeLabel(item.type)) + "</td>" +
+                "<td>" + escapeHtml(getCriteriaRuleSummary(item)) + "</td>" +
+                "<td><div class=\"button-row\"><button type=\"button\" class=\"btn ghost\" data-item-edit=\"" + item.id + "\">Edit</button><button type=\"button\" class=\"btn danger\" data-item-delete=\"" + item.id + "\">Delete</button></div></td>" +
+                "</tr>"
+              );
+            })
+            .join("")
+        : "<tr><td>" + escapeHtml(category.category) + "</td><td colspan=\"4\" class=\"empty-row\">No items in this category.</td></tr>";
+      return itemRows;
     })
     .join("");
 
   return (
-    "<section class=\"section-header\">" +
-    "<div>" +
-    "<h1>HOD / IQAC Dashboard</h1>" +
-    "<p class=\"muted\">Class-wise normalized performance and grade overview.</p>" +
-    "</div>" +
-    "</section>" +
-    "<section class=\"panel\">" +
-    "<div class=\"table-wrap\">" +
-    "<table>" +
-    "<thead><tr><th>Class Name</th><th>Total Score</th><th>Normalized Score</th><th>Percentile</th><th>Grade</th></tr></thead>" +
-    "<tbody>" + rows + "</tbody>" +
-    "</table>" +
-    "</div>" +
-    "</section>"
+    "<section class=\"section-header\"><div><h1>Criteria Management</h1><p class=\"muted\">Add categories, add criteria items, and update marks/rules.</p></div></section>" +
+    "<section class=\"cards-grid two-panel-grid\">" +
+    "<article class=\"panel\"><h3>Academic Year</h3><div class=\"field\"><label for=\"academic-year-select\">Select Session</label><select id=\"academic-year-select\">" + yearOptions + "</select></div>" +
+    "<hr /><h3>Add Category</h3><form id=\"category-form\" class=\"stack-form\"><div class=\"field\"><label for=\"category-title\">Category Name</label><input id=\"category-title\" name=\"categoryTitle\" type=\"text\" required /></div><div class=\"button-row\"><button type=\"submit\" class=\"btn primary\">＋ Add Category</button></div></form></article>" +
+    "<article class=\"panel\"><h3>" + (editingItem ? "Edit Criteria Item" : "Add Criteria Item") + "</h3>" +
+    "<form id=\"criteria-item-form\" class=\"stack-form\" data-editing-item=\"" + (editingItem ? editingItem.id : "") + "\">" +
+    "<div class=\"field\"><label for=\"criteria-item-category\">Category</label><select id=\"criteria-item-category\" name=\"categoryId\" required>" + categoryOptions + "</select></div>" +
+    "<div class=\"field\"><label for=\"criteria-item-title\">Title</label><input id=\"criteria-item-title\" name=\"title\" type=\"text\" required value=\"" + escapeAttribute(editingItem ? editingItem.title : "") + "\" /></div>" +
+    "<div class=\"field\"><label for=\"criteria-item-type\">Type</label><select id=\"criteria-item-type\" name=\"type\"><option value=\"fixed\"" + fixedSelected + ">Fixed / Boolean</option><option value=\"count\"" + countSelected + ">Count Based</option><option value=\"range\"" + rangeSelected + ">Range Based</option><option value=\"negative\"" + negativeSelected + ">Negative Marks</option></select></div>" +
+    "<div class=\"field\"><label for=\"criteria-item-marks\">Marks (fixed/count/negative)</label><input id=\"criteria-item-marks\" name=\"marks\" type=\"number\" step=\"0.5\" value=\"" + (editingItem && Number.isFinite(editingItem.marks) ? editingItem.marks : "") + "\" /></div>" +
+    "<div class=\"field\"><label for=\"criteria-item-rules\">Range Rules (for range type)</label><textarea id=\"criteria-item-rules\" name=\"rules\" placeholder=\"90-100:5, 80-89.99:4\">" + escapeHtml(editingItem ? formatRulesText(editingItem.rules || []) : "") + "</textarea></div>" +
+    "<div class=\"button-row\"><button type=\"submit\" class=\"btn primary\">" + (editingItem ? "✎ Update Item" : "＋ Add Item") + "</button><button type=\"button\" id=\"cancel-item-edit\" class=\"btn ghost " + (editingItem ? "" : "hidden") + "\">Cancel</button></div>" +
+    "</form></article></section>" +
+    "<section class=\"panel\"><h3>Criteria by Category</h3><div class=\"table-wrap\"><table><thead><tr><th>Category</th><th>Item</th><th>Type</th><th>Marks / Rules</th><th>Actions</th></tr></thead><tbody>" + groupedRows + "</tbody></table></div></section>"
   );
 }
 
-function renderRankingDashboard() {
+function renderHodDashboard() {
+  const performance = buildClassPerformance();
+  const metrics = {
+    total: submissions.length,
+    approved: submissions.filter((item) => item.status === "Approved").length,
+    pending: submissions.filter((item) => item.status === "Pending").length,
+    rejected: submissions.filter((item) => item.status === "Rejected").length,
+    correction: submissions.filter((item) => String(item.status).toLowerCase().indexOf("correction") > -1).length,
+    score: performance.reduce((sum, item) => sum + item.totalScore, 0),
+    maxScore: performance.reduce((sum, item) => sum + item.maxScore, 0)
+  };
+
+  return (
+    "<section class=\"section-header\"><div><h1>HOD / IQAC Dashboard</h1><p class=\"muted\">Institution-level performance overview.</p></div></section>" +
+    renderDashboardCards(metrics) +
+    renderCategoryBreakdown(submissions, "Institution Score by Category") +
+    renderStatusProgress("Institution Submission Health", metrics)
+  );
+}
+
+function renderHodReportsPage() {
   const ranked = buildClassPerformance().sort((a, b) => {
     if (b.totalScore === a.totalScore) {
       return b.normalizedScore - a.normalizedScore;
@@ -902,133 +1163,83 @@ function renderRankingDashboard() {
     return b.totalScore - a.totalScore;
   });
 
-  const rows = ranked
+  const maxScore = Math.max(1, ...ranked.map((item) => item.totalScore));
+
+  const leaderboardRows = ranked
     .map((entry, index) => {
       const topClass = index === 0 ? "top-1" : index === 1 ? "top-2" : index === 2 ? "top-3" : "";
+      const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "#" + (index + 1);
+      const width = (entry.totalScore / maxScore) * 100;
       return (
         "<article class=\"leaderboard-row " + topClass + "\">" +
-        "<div class=\"rank-badge\">#" + (index + 1) + "</div>" +
-        "<div>" +
-        "<h4>" + escapeHtml(entry.className) + "</h4>" +
-        "<p class=\"muted\">Grade " + entry.grade + " | Percentile " + entry.percentile.toFixed(1) + "</p>" +
+        "<div class=\"leaderboard-rank\">" + medal + "</div>" +
+        "<div class=\"leaderboard-main\">" +
+        "<h4>" + escapeHtml(entry.className) + " <span class=\"grade-badge " + getGradeClass(entry.grade) + "\">" + escapeHtml(entry.grade) + "</span></h4>" +
+        "<div class=\"progress-track\"><div class=\"progress-fill\" style=\"width:" + width.toFixed(1) + "%\"></div></div>" +
         "</div>" +
-        "<div class=\"leaderboard-metric\">" +
-        "<p><strong>Total:</strong> " + entry.totalScore.toFixed(1) + "</p>" +
-        "<p><strong>Normalized:</strong> " + entry.normalizedScore.toFixed(1) + "</p>" +
-        "</div>" +
+        "<div class=\"leaderboard-metric\"><p><strong>Total:</strong> " + entry.totalScore.toFixed(1) + "</p><p><strong>Normalized:</strong> " + entry.normalizedScore.toFixed(1) + "</p></div>" +
         "</article>"
       );
     })
     .join("");
 
+  const tableRows = ranked
+    .map((entry) => {
+      return (
+        "<tr>" +
+        "<td>" + escapeHtml(entry.className) + "</td>" +
+        "<td>" + entry.totalScore.toFixed(1) + "</td>" +
+        "<td>" + entry.normalizedScore.toFixed(1) + "</td>" +
+        "<td>" + entry.percentile.toFixed(1) + "</td>" +
+        "<td><span class=\"grade-badge " + getGradeClass(entry.grade) + "\">" + entry.grade + "</span></td>" +
+        "</tr>"
+      );
+    })
+    .join("");
+
   return (
-    "<section class=\"section-header\">" +
-    "<div>" +
-    "<h1>Class Leaderboard</h1>" +
-    "<p class=\"muted\">Top 3 classes are highlighted based on total scores.</p>" +
-    "</div>" +
-    "</section>" +
-    "<section class=\"panel\">" +
-    "<div class=\"leaderboard\">" + rows + "</div>" +
-    "</section>"
+    "<section class=\"section-header\"><div><h1>Reports</h1><p class=\"muted\">Leaderboard and class-wise academic performance.</p></div></section>" +
+    "<section class=\"panel\"><h3>Class Leaderboard</h3><div class=\"leaderboard\">" + leaderboardRows + "</div></section>" +
+    "<section class=\"panel\"><h3>Performance Table</h3><div class=\"table-wrap\"><table><thead><tr><th>Class</th><th>Total Score</th><th>Normalized</th><th>Percentile</th><th>Grade</th></tr></thead><tbody>" + tableRows + "</tbody></table></div></section>"
   );
 }
 
 function handlePageClick(event) {
-    // Evaluator department selection
-    const evalDeptBtn = event.target.closest("button[data-eval-dept]");
-    if (evalDeptBtn) {
-      state.selectedDepartment = evalDeptBtn.dataset.evalDept;
-      renderPage();
+  const pageJump = event.target.closest("button[data-page-jump]");
+  if (pageJump) {
+    navigateToPage(pageJump.dataset.pageJump);
+    return;
+  }
+
+  const submitCategoryButton = event.target.closest("button[data-submit-category]");
+  if (submitCategoryButton) {
+    const categoryId = String(submitCategoryButton.dataset.submitCategory || "");
+    const category = getCategoryById(categoryId);
+
+    if (!category) {
+      showToast("Category not found.", "error");
       return;
     }
 
-  const toggleLeaderFormBtn = event.target.closest("#toggle-leader-form");
-  if (toggleLeaderFormBtn) {
-    state.showLeaderSubmissionForm = !state.showLeaderSubmissionForm;
-    if (!state.showLeaderSubmissionForm) {
-      state.editingSubmissionId = null;
-    }
-    renderPage();
+    state.selectedSubmissionCategoryId = category.id;
+    const firstItem = category.items && category.items[0] ? category.items[0] : null;
+    state.selectedSubmissionItemId = firstItem ? firstItem.id : "";
+
+    navigateToPage("submit", {
+      query: { category: category.id }
+    });
     return;
   }
 
-  const clearLeaderFiltersBtn = event.target.closest("#leader-filter-clear");
-  if (clearLeaderFiltersBtn) {
-    state.leaderFilters = {
-      status: "all",
-      studentId: "all",
-      criteriaId: "all",
-      proofType: "all",
-      query: ""
-    };
-    renderPage();
+  const verifySaveButton = event.target.closest("button[data-evaluator-verify-save]");
+  if (verifySaveButton) {
+    verifyAndSaveEvaluatorSubmission(Number(verifySaveButton.dataset.evaluatorVerifySave));
     return;
   }
 
-  const leaderEditBtn = event.target.closest("button[data-leader-edit]");
-  if (leaderEditBtn) {
-    const submissionId = Number(leaderEditBtn.dataset.leaderEdit);
-    if (!canLeaderAccessSubmission(submissionId)) {
-      showToast("You can edit only submissions from your class.", "warning");
-      return;
-    }
-    state.editingSubmissionId = submissionId;
-    state.showLeaderSubmissionForm = true;
-    renderPage();
-    return;
-  }
-
-  const leaderStatusBtn = event.target.closest("button[data-leader-status]");
-  if (leaderStatusBtn) {
-    const submissionId = Number(leaderStatusBtn.dataset.id);
-    const nextStatus = String(leaderStatusBtn.dataset.leaderStatus || "");
-    updateLeaderStatus(submissionId, nextStatus);
-    return;
-  }
-
-  const leaderDeleteBtn = event.target.closest("button[data-leader-delete]");
-  if (leaderDeleteBtn) {
-    const subId = Number(leaderDeleteBtn.dataset.leaderDelete);
-    deleteLeaderSubmission(subId);
-    return;
-  }
-
-  const cancelLeaderEditBtn = event.target.closest("#cancel-leader-edit");
-  if (cancelLeaderEditBtn) {
-    state.editingSubmissionId = null;
-    state.showLeaderSubmissionForm = false;
-    renderPage();
-    return;
-  }
-
-  const toggleSubmissionButton = event.target.closest("#toggle-submission-form");
-  if (toggleSubmissionButton) {
-    state.studentEditingSubmissionId = null;
-    state.showSubmissionForm = !state.showSubmissionForm;
-    renderPage();
-    return;
-  }
-
-  const studentEditBtn = event.target.closest("button[data-student-edit]");
-  if (studentEditBtn) {
-    state.studentEditingSubmissionId = Number(studentEditBtn.dataset.studentEdit);
-    state.showSubmissionForm = true;
-    renderPage();
-    return;
-  }
-
-  const studentRequestEditBtn = event.target.closest("button[data-student-request-edit]");
-  if (studentRequestEditBtn) {
-    requestStudentEdit(Number(studentRequestEditBtn.dataset.studentRequestEdit));
-    return;
-  }
-
-  const cancelStudentEditBtn = event.target.closest("#cancel-student-edit");
-  if (cancelStudentEditBtn) {
-    state.studentEditingSubmissionId = null;
-    state.showSubmissionForm = false;
-    renderPage();
+  const editCompletedButton = event.target.closest("button[data-evaluator-edit]");
+  if (editCompletedButton) {
+    moveEvaluatorSubmissionToPending(Number(editCompletedButton.dataset.evaluatorEdit));
     return;
   }
 
@@ -1036,27 +1247,36 @@ function handlePageClick(event) {
   if (teacherActionButton) {
     const submissionId = Number(teacherActionButton.dataset.id);
     const nextStatus = teacherActionButton.dataset.teacherAction;
-    updateTeacherStatus(submissionId, nextStatus);
+
+    openConfirmModal(
+      "Confirm Action",
+      "Mark submission #" + submissionId + " as " + nextStatus + "?",
+      () => updateTeacherStatus(submissionId, nextStatus)
+    );
     return;
   }
 
-  const editCriteriaButton = event.target.closest("button[data-criteria-edit]");
-  if (editCriteriaButton) {
-    state.editingCriteriaId = Number(editCriteriaButton.dataset.criteriaEdit);
+  const editItemButton = event.target.closest("button[data-item-edit]");
+  if (editItemButton) {
+    state.editingCriteriaItemId = Number(editItemButton.dataset.itemEdit);
     renderPage();
     return;
   }
 
-  const deleteCriteriaButton = event.target.closest("button[data-criteria-delete]");
-  if (deleteCriteriaButton) {
-    deleteCriteria(Number(deleteCriteriaButton.dataset.criteriaDelete));
+  const deleteItemButton = event.target.closest("button[data-item-delete]");
+  if (deleteItemButton) {
+    const itemId = Number(deleteItemButton.dataset.itemDelete);
+    openConfirmModal("Delete Criteria Item", "Are you sure you want to delete this criteria item?", () => {
+      deleteCriteriaItem(itemId);
+    });
     return;
   }
 
-  const cancelEditButton = event.target.closest("#cancel-edit-criteria");
-  if (cancelEditButton) {
-    state.editingCriteriaId = null;
+  const cancelItemEdit = event.target.closest("#cancel-item-edit");
+  if (cancelItemEdit) {
+    state.editingCriteriaItemId = null;
     renderPage();
+    return;
   }
 }
 
@@ -1069,121 +1289,97 @@ function handlePageSubmit(event) {
     return;
   }
 
-  if (form.id === "leader-submission-form") {
+  if (form.id === "category-form") {
     event.preventDefault();
-    submitLeaderSubmission(form);
+    submitCategoryForm(form);
     return;
   }
 
-  if (form.dataset.markForm) {
+  if (form.id === "criteria-item-form") {
     event.preventDefault();
-    saveEvaluatorMarks(form);
-    return;
-  }
-
-  if (form.id === "criteria-form") {
-    event.preventDefault();
-    submitCriteriaForm(form);
+    submitCriteriaItemForm(form);
   }
 }
 
 function handlePageChange(event) {
   const target = event.target;
+
   if (target.id === "academic-year-select") {
     state.selectedAcademicYear = target.value;
-    ui.topbarSubheading.textContent = "Academic Year " + state.selectedAcademicYear;
-    showToast("Academic year updated to " + state.selectedAcademicYear + ".", "info");
+    renderTopbar();
+    showToast("Academic year set to " + state.selectedAcademicYear + ".", "info");
     return;
   }
 
-  if (target.id === "leader-filter-status") {
-    state.leaderFilters.status = target.value;
+  if (target.id === "submission-category") {
+    state.selectedSubmissionCategoryId = target.value;
+    const category = getCategoryById(state.selectedSubmissionCategoryId);
+    const firstItem = category && category.items && category.items[0] ? category.items[0] : null;
+    state.selectedSubmissionItemId = firstItem ? firstItem.id : "";
     renderPage();
     return;
   }
 
-  if (target.id === "leader-filter-student") {
-    state.leaderFilters.studentId = target.value;
+  if (target.id === "submission-criteria") {
+    state.selectedSubmissionItemId = Number(target.value);
     renderPage();
     return;
   }
 
-  if (target.id === "leader-filter-criteria") {
-    state.leaderFilters.criteriaId = target.value;
-    renderPage();
+  if (target.id === "criteria-item-type") {
     return;
-  }
-
-  if (target.id === "leader-filter-proof") {
-    state.leaderFilters.proofType = target.value;
-    renderPage();
-    return;
-  }
-
-  if (target.id === "leader-filter-query") {
-    state.leaderFilters.query = target.value;
-    renderPage();
   }
 }
 
 function submitStudentSubmission(form) {
-  if (!criteria.length) {
-    showToast("No criteria available. Ask admin to add criteria.", "warning");
-    return;
-  }
-
   const formData = new FormData(form);
+  const categoryId = String(formData.get("categoryId") || "").trim();
   const criteriaId = Number(formData.get("criteriaId"));
   const description = String(formData.get("description") || "").trim();
-  const proofLink = String(formData.get("proofLink") || "").trim();
+
+  const criteriaItem = getCriteriaById(criteriaId);
+  const category = getCategoryById(categoryId);
+
+  if (!criteriaItem || !category || !description) {
+    showToast("Please select category, item, and description.", "error");
+    return;
+  }
+
+  const evidence = {
+    type: criteriaItem.type,
+    count: null,
+    value: null,
+    checked: false
+  };
+
+  if (criteriaItem.type === "count" || criteriaItem.type === "negative") {
+    const countValue = Number(formData.get("countValue"));
+    if (!Number.isFinite(countValue) || countValue <= 0) {
+      showToast("Please enter a valid count.", "error");
+      return;
+    }
+    evidence.count = countValue;
+  }
+
+  if (criteriaItem.type === "range") {
+    const rangeValue = Number(formData.get("rangeValue"));
+    if (!Number.isFinite(rangeValue) || rangeValue < 0) {
+      showToast("Please enter a valid percentage/value.", "error");
+      return;
+    }
+    evidence.value = rangeValue;
+  }
+
+  if (criteriaItem.type === "boolean") {
+    const boolValue = String(formData.get("booleanValue") || "no");
+    evidence.checked = boolValue === "yes";
+  }
+
   const proofFile = form.querySelector("input[name='proof']");
-  const proofName = proofFile && proofFile.files && proofFile.files[0] ? proofFile.files[0].name : "";
-
-  if (!criteriaId || !description) {
-    showToast("Please provide criteria and description.", "error");
-    return;
-  }
-
-  if (state.studentEditingSubmissionId) {
-    const existing = submissions.find((item) => item.id === state.studentEditingSubmissionId && item.studentId === state.currentStudentId);
-    if (!existing) {
-      showToast("Submission not found.", "error");
-      return;
-    }
-
-    if (!canStudentEdit(existing)) {
-      showToast("Edit not allowed for this status.", "warning");
-      return;
-    }
-
-    existing.criteriaId = criteriaId;
-    existing.description = description;
-    existing.proof = proofName || existing.proof;
-    existing.proofType = proofLink ? "link" : "file";
-    existing.proofLink = proofLink;
-    existing.editRequested = false;
-    if (existing.status === "Edit Allowed") {
-      existing.status = "Pending";
-      existing.marks = null;
-    }
-    existing.updatedAt = new Date().toISOString();
-
-    state.studentEditingSubmissionId = null;
-    state.showSubmissionForm = false;
-    saveSubmissions();
-    form.reset();
-    renderPage();
-    showToast("Submission updated successfully.", "success");
-    return;
-  }
-
-  if (!proofName && !proofLink) {
-    showToast("Please upload a file or add a proof link.", "warning");
-    return;
-  }
+  const proofName = proofFile && proofFile.files && proofFile.files[0] ? proofFile.files[0].name : "proof-file.pdf";
 
   const nextId = submissions.reduce((maxId, item) => Math.max(maxId, item.id), 0) + 1;
-  submissions.unshift({
+  const newSubmission = {
     id: nextId,
     studentId: state.currentStudentId,
     criteriaId: criteriaId,
@@ -1191,172 +1387,17 @@ function submitStudentSubmission(form) {
     status: "Pending",
     remarks: "",
     marks: null,
-    suggestedMarks: null,
-    proof: proofName || "proof-link",
-    proofType: proofLink ? "link" : "file",
-    proofLink: proofLink,
-    editRequested: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  });
+    proof: proofName,
+    evaluatorVerified: false,
+    evidence: evidence
+  };
 
-  state.showSubmissionForm = false;
-  saveSubmissions();
+  submissions.unshift(newSubmission);
+  bootstrapSingleSubmissionMarks(newSubmission);
+
   form.reset();
-  renderPage();
   showToast("Submission added successfully.", "success");
-}
-
-function submitLeaderSubmission(form) {
-  if (!criteria.length) {
-    showToast("No criteria available.", "warning");
-    return;
-  }
-
-  const formData = new FormData(form);
-  const studentId = Number(formData.get("studentId"));
-  const criteriaId = Number(formData.get("criteriaId"));
-  const description = String(formData.get("description") || "").trim();
-  const proofLink = String(formData.get("proofLink") || "").trim();
-
-  if (!studentId || !criteriaId || !description) {
-    showToast("Please provide all required fields.", "error");
-    return;
-  }
-
-  const student = getStudentById(studentId);
-  if (!student || student.className !== state.leaderClassName) {
-    showToast("You can manage only students from your class.", "warning");
-    return;
-  }
-
-  if (state.editingSubmissionId) {
-    const submission = submissions.find(item => item.id === state.editingSubmissionId);
-    if (!submission) {
-      showToast("Submission not found.", "error");
-      return;
-    }
-    if (!canLeaderAccessSubmission(submission.id)) {
-      showToast("You can edit only submissions from your class.", "warning");
-      return;
-    }
-    submission.studentId = studentId;
-    submission.criteriaId = criteriaId;
-    submission.description = description;
-    submission.proofLink = proofLink;
-    submission.proofType = proofLink ? "link" : submission.proofType;
-    submission.updatedAt = new Date().toISOString();
-
-    state.editingSubmissionId = null;
-    state.showLeaderSubmissionForm = false;
-    showToast("Submission updated successfully.", "success");
-  } else {
-    const nextId = submissions.reduce((maxId, item) => Math.max(maxId, item.id), 0) + 1;
-    submissions.unshift({
-      id: nextId,
-      studentId: studentId,
-      criteriaId: criteriaId,
-      description: description,
-      status: "Pending",
-      remarks: "",
-      marks: null,
-      suggestedMarks: null,
-      proof: "leader_proof.pdf",
-      proofType: proofLink ? "link" : "file",
-      proofLink: proofLink,
-      editRequested: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-    showToast("Submission added successfully.", "success");
-  }
-  
-  state.showLeaderSubmissionForm = false;
-  saveSubmissions();
   renderPage();
-}
-
-function deleteLeaderSubmission(submissionId) {
-  if (!canLeaderAccessSubmission(submissionId)) {
-    showToast("You can delete only submissions from your class.", "warning");
-    return;
-  }
-
-  const oldCount = submissions.length;
-  submissions = submissions.filter(item => item.id !== submissionId);
-
-  if (submissions.length === oldCount) {
-    showToast("Submission not found.", "error");
-    return;
-  }
-
-  if (state.editingSubmissionId === submissionId) {
-    state.editingSubmissionId = null;
-    state.showLeaderSubmissionForm = false;
-  }
-
-  saveSubmissions();
-  showToast("Submission deleted successfully.", "success");
-  renderPage();
-}
-
-function updateLeaderStatus(submissionId, nextStatus) {
-  const submission = submissions.find((item) => item.id === submissionId);
-  if (!submission) {
-    showToast("Submission not found.", "error");
-    return;
-  }
-  if (!canLeaderAccessSubmission(submissionId)) {
-    showToast("You can update only submissions from your class.", "warning");
-    return;
-  }
-
-  const suggestedInput = ui.pageContent.querySelector("[data-leader-suggested-marks='" + submissionId + "']");
-  const suggestedValue = suggestedInput ? suggestedInput.value.trim() : "";
-  const itemCriteria = getCriteriaById(submission.criteriaId);
-  const suggestedMarks = suggestedValue === "" ? null : Number(suggestedValue);
-
-  if (suggestedValue !== "" && (!Number.isFinite(suggestedMarks) || suggestedMarks < 0)) {
-    showToast("Suggested marks must be a valid positive number.", "error");
-    return;
-  }
-
-  if (itemCriteria && Number.isFinite(suggestedMarks) && suggestedMarks > itemCriteria.maxMarks) {
-    showToast("Suggested marks cannot exceed max marks of " + itemCriteria.maxMarks + ".", "error");
-    return;
-  }
-
-  submission.suggestedMarks = suggestedMarks;
-  submission.status = nextStatus;
-  submission.editRequested = false;
-  submission.updatedAt = new Date().toISOString();
-  if (nextStatus !== "Approved") {
-    submission.marks = null;
-  }
-
-  saveSubmissions();
-  renderPage();
-  showToast("Submission " + submissionId + " updated to " + nextStatus + ".", "success");
-}
-
-function requestStudentEdit(submissionId) {
-  const submission = submissions.find((item) => item.id === submissionId && item.studentId === state.currentStudentId);
-  if (!submission) {
-    showToast("Submission not found.", "error");
-    return;
-  }
-
-  if (submission.status !== "Approved") {
-    showToast("Edit request is needed only for approved submissions.", "info");
-    return;
-  }
-
-  submission.editRequested = true;
-  submission.status = "Edit Request Pending";
-  submission.updatedAt = new Date().toISOString();
-  saveSubmissions();
-  renderPage();
-  showToast("Edit request sent to class leader.", "success");
 }
 
 function updateTeacherStatus(submissionId, nextStatus) {
@@ -1372,16 +1413,18 @@ function updateTeacherStatus(submissionId, nextStatus) {
   submission.status = nextStatus;
   submission.remarks = remarkValue;
 
-  if (nextStatus !== "Approved") {
+  if (nextStatus === "Approved") {
+    submission.marks = calculateMarksByRule(submission, getCriteriaById(submission.criteriaId));
+  } else {
     submission.marks = null;
+    submission.evaluatorVerified = false;
   }
 
-  renderPage();
   showToast("Submission " + submissionId + " marked as " + nextStatus + ".", "success");
+  renderPage();
 }
 
-function saveEvaluatorMarks(form) {
-  const submissionId = Number(form.dataset.markForm);
+function verifyAndSaveEvaluatorSubmission(submissionId) {
   const submission = submissions.find((item) => item.id === submissionId);
 
   if (!submission) {
@@ -1389,85 +1432,446 @@ function saveEvaluatorMarks(form) {
     return;
   }
 
-  const itemCriteria = getCriteriaById(submission.criteriaId);
-  if (!itemCriteria) {
-    showToast("Criteria not found for this submission.", "error");
+  const criteriaItem = getCriteriaById(submission.criteriaId);
+  if (!criteriaItem) {
+    showToast("Criteria item not found for this submission.", "error");
     return;
   }
 
-  const marksInput = form.querySelector("input[name='marks']");
-  const marks = Number(marksInput.value);
+  const marksInput = ui.pageContent.querySelector("[data-evaluator-manual='" + submissionId + "']");
+  const manualInput = marksInput ? String(marksInput.value || "").trim() : "";
+  const autoMarks = calculateMarksByRule(submission, criteriaItem);
 
-  if (!Number.isFinite(marks) || marks < 0) {
-    showToast("Marks must be a valid positive number.", "error");
-    return;
+  const min = getCriteriaMinMarks(criteriaItem, submission);
+  const max = getCriteriaMaxMarks(criteriaItem, submission);
+
+  let marks = autoMarks;
+  if (manualInput !== "") {
+    marks = Number(manualInput);
+    if (!Number.isFinite(marks)) {
+      showToast("Manual marks must be a valid number.", "error");
+      return;
+    }
   }
 
-  if (marks > itemCriteria.maxMarks) {
-    showToast("Marks cannot exceed max marks of " + itemCriteria.maxMarks + ".", "error");
+  if (marks < min || marks > max) {
+    showToast("Marks must be between " + min + " and " + max + ".", "error");
     return;
   }
 
   submission.marks = marks;
-  showToast("Marks saved for submission " + submissionId + ".", "success");
+  submission.evaluatorVerified = true;
+  setEvaluatorTransition(submission.id, "to-completed");
+  showToast("Submission verified and saved.", "success");
   renderPage();
 }
 
-function submitCriteriaForm(form) {
-  const formData = new FormData(form);
-  const title = String(formData.get("title") || "").trim();
-  const maxMarks = Number(formData.get("maxMarks"));
-
-  if (!title || !Number.isFinite(maxMarks) || maxMarks <= 0) {
-    showToast("Please enter a valid criteria title and max marks.", "error");
+function moveEvaluatorSubmissionToPending(submissionId) {
+  const submission = submissions.find((item) => item.id === submissionId);
+  if (!submission) {
+    showToast("Submission not found.", "error");
     return;
   }
 
-  if (state.editingCriteriaId) {
-    const targetCriteria = criteria.find((item) => item.id === state.editingCriteriaId);
-    if (!targetCriteria) {
-      showToast("Criteria not found.", "error");
+  if (submission.status !== "Approved") {
+    showToast("Only approved submissions can be moved for evaluator review.", "warning");
+    return;
+  }
+
+  submission.evaluatorVerified = false;
+  setEvaluatorTransition(submission.id, "to-pending");
+  showToast("Submission moved to Pending for re-evaluation.", "info");
+  renderPage();
+}
+
+function submitCategoryForm(form) {
+  const formData = new FormData(form);
+  const categoryTitle = String(formData.get("categoryTitle") || "").trim();
+
+  if (!categoryTitle) {
+    showToast("Please enter a category name.", "error");
+    return;
+  }
+
+  const duplicate = criteriaCatalog.some((category) => category.category.toLowerCase() === categoryTitle.toLowerCase());
+  if (duplicate) {
+    showToast("Category already exists.", "warning");
+    return;
+  }
+
+  const nextId = "cat-" + Date.now();
+  criteriaCatalog.push({
+    id: nextId,
+    category: categoryTitle,
+    items: []
+  });
+
+  form.reset();
+  showToast("Category added.", "success");
+  renderPage();
+}
+
+function submitCriteriaItemForm(form) {
+  const formData = new FormData(form);
+  const categoryId = String(formData.get("categoryId") || "").trim();
+  const title = String(formData.get("title") || "").trim();
+  const type = normalizeCriteriaType(formData.get("type"));
+  const marks = Number(formData.get("marks"));
+  const rulesInput = String(formData.get("rules") || "").trim();
+
+  if (!categoryId || !title) {
+    showToast("Please select category and title.", "error");
+    return;
+  }
+
+  const category = getCategoryById(categoryId);
+  if (!category) {
+    showToast("Category not found.", "error");
+    return;
+  }
+
+  let parsedRules = [];
+  if (type === "range") {
+    parsedRules = parseRulesFromText(rulesInput);
+    if (!parsedRules.length) {
+      showToast("Enter valid range rules like 90-100:5, 80-89.99:4", "error");
+      return;
+    }
+  }
+
+  if (type !== "range" && !Number.isFinite(marks)) {
+    showToast("Marks value is required for this type.", "error");
+    return;
+  }
+
+  if (type === "negative" && marks > 0) {
+    showToast("Negative criteria must use zero or negative marks.", "error");
+    return;
+  }
+
+  const editingId = Number(form.dataset.editingItem || state.editingCriteriaItemId || 0);
+  if (editingId) {
+    const targetItem = getCriteriaById(editingId);
+    if (!targetItem) {
+      showToast("Criteria item not found.", "error");
       return;
     }
 
-    targetCriteria.name = title;
-    targetCriteria.maxMarks = maxMarks;
-    state.editingCriteriaId = null;
-    showToast("Criteria updated.", "success");
+    const currentCategory = getCategoryByItemId(editingId);
+    if (currentCategory && currentCategory.id !== categoryId) {
+      currentCategory.items = currentCategory.items.filter((item) => item.id !== editingId);
+      category.items.push(targetItem);
+    }
+
+    targetItem.title = title;
+    targetItem.category = category.category;
+    targetItem.type = type;
+    targetItem.marks = type === "range" ? 0 : marks;
+    targetItem.rules = type === "range" ? parsedRules : [];
+
+    state.editingCriteriaItemId = null;
+    showToast("Criteria item updated.", "success");
   } else {
-    const nextId = criteria.reduce((maxId, item) => Math.max(maxId, item.id), 0) + 1;
-    criteria.push({
+    const nextId = getNextCriteriaItemId();
+    category.items.push({
       id: nextId,
-      name: title,
-      maxMarks: maxMarks
+      category: category.category,
+      title: title,
+      type: type,
+      marks: type === "range" ? 0 : marks,
+      rules: type === "range" ? parsedRules : []
     });
-    showToast("Criteria added.", "success");
+    showToast("Criteria item added.", "success");
   }
 
   renderPage();
 }
 
-function deleteCriteria(criteriaId) {
-  const criteriaInUse = submissions.some((item) => item.criteriaId === criteriaId);
-  if (criteriaInUse) {
-    showToast("Cannot delete criteria that is used in submissions.", "warning");
+function deleteCriteriaItem(itemId) {
+  const inUse = submissions.some((submission) => submission.criteriaId === itemId);
+  if (inUse) {
+    showToast("Cannot delete item used in submissions.", "warning");
     return;
   }
 
-  const oldCount = criteria.length;
-  criteria = criteria.filter((item) => item.id !== criteriaId);
+  let deleted = false;
+  criteriaCatalog.forEach((category) => {
+    const previous = category.items.length;
+    category.items = category.items.filter((item) => item.id !== itemId);
+    if (category.items.length !== previous) {
+      deleted = true;
+    }
+  });
 
-  if (criteria.length === oldCount) {
-    showToast("Criteria not found.", "error");
+  if (!deleted) {
+    showToast("Criteria item not found.", "error");
     return;
   }
 
-  if (state.editingCriteriaId === criteriaId) {
-    state.editingCriteriaId = null;
+  if (state.editingCriteriaItemId === itemId) {
+    state.editingCriteriaItemId = null;
   }
 
+  showToast("Criteria item deleted.", "success");
   renderPage();
-  showToast("Criteria deleted.", "success");
+}
+
+function parseRulesFromText(input) {
+  if (!input) {
+    return [];
+  }
+
+  const segments = input.split(",").map((item) => item.trim()).filter(Boolean);
+  const rules = [];
+
+  segments.forEach((segment) => {
+    const parts = segment.split(":");
+    if (parts.length !== 2) {
+      return;
+    }
+
+    const rangePart = parts[0].trim();
+    const marksPart = Number(parts[1].trim());
+
+    const rangePieces = rangePart.split("-");
+    if (rangePieces.length !== 2 || !Number.isFinite(marksPart)) {
+      return;
+    }
+
+    const min = Number(rangePieces[0].trim());
+    const max = Number(rangePieces[1].trim());
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      return;
+    }
+
+    rules.push({ min: min, max: max, marks: marksPart });
+  });
+
+  return rules;
+}
+
+function formatRulesText(rules) {
+  return (rules || [])
+    .map((rule) => {
+      return rule.min + "-" + rule.max + ":" + rule.marks;
+    })
+    .join(", ");
+}
+
+function getNextCriteriaItemId() {
+  const allIds = getAllCriteriaItems().map((item) => Number(item.id)).filter((id) => Number.isFinite(id));
+  const max = allIds.length ? Math.max(...allIds) : 100;
+  return max + 1;
+}
+
+function bootstrapComputedMarks() {
+  submissions.forEach((submission) => {
+    bootstrapSingleSubmissionMarks(submission);
+  });
+}
+
+function bootstrapSingleSubmissionMarks(submission) {
+  const criteriaItem = getCriteriaById(submission.criteriaId);
+  if (!criteriaItem) {
+    return;
+  }
+
+  if (!submission.evidence) {
+    submission.evidence = normalizeEvidence({ type: criteriaItem.type });
+  }
+
+  const suggested = calculateMarksByRule(submission, criteriaItem);
+  submission.suggestedMarks = suggested;
+
+  if (!Number.isFinite(submission.marks) && submission.status === "Approved") {
+    submission.marks = suggested;
+  }
+}
+
+function calculateMarksByRule(submission, criteriaItem) {
+  if (!criteriaItem) {
+    return 0;
+  }
+
+  const evidence = normalizeEvidence(submission.evidence);
+
+  if (criteriaItem.type === "count") {
+    const count = Number.isFinite(evidence.count) ? evidence.count : 0;
+    return count * criteriaItem.marks;
+  }
+
+  if (criteriaItem.type === "negative") {
+    const count = Number.isFinite(evidence.count) ? evidence.count : 1;
+    return count * criteriaItem.marks;
+  }
+
+  if (criteriaItem.type === "range") {
+    const value = Number.isFinite(evidence.value) ? evidence.value : null;
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    const matched = getMatchedRangeRule(criteriaItem, value);
+    return matched ? matched.marks : 0;
+  }
+
+  if (criteriaItem.type === "boolean") {
+    return evidence.checked ? criteriaItem.marks : 0;
+  }
+
+  return criteriaItem.marks;
+}
+
+function getSubmissionEffectiveMarks(submission) {
+  if (Number.isFinite(submission.marks)) {
+    return submission.marks;
+  }
+
+  const criteriaItem = getCriteriaById(submission.criteriaId);
+  return calculateMarksByRule(submission, criteriaItem);
+}
+
+function getCriteriaMinMarks(criteriaItem, submission) {
+  if (!criteriaItem) {
+    return -100;
+  }
+
+  if (criteriaItem.type === "negative") {
+    const count = submission && submission.evidence && Number.isFinite(submission.evidence.count) ? submission.evidence.count : 1;
+    return Math.min(0, count * (Number(criteriaItem.marks) || 0));
+  }
+
+  if (criteriaItem.type === "range") {
+    const marks = (criteriaItem.rules || []).map((rule) => rule.marks);
+    return marks.length ? Math.min(...marks, 0) : 0;
+  }
+
+  return Math.min(0, Number(criteriaItem.marks) || 0);
+}
+
+function getCriteriaMaxMarks(criteriaItem, submission) {
+  if (!criteriaItem) {
+    return 100;
+  }
+
+  if (criteriaItem.type === "negative") {
+    return 0;
+  }
+
+  if (criteriaItem.type === "count") {
+    const count = submission && submission.evidence && Number.isFinite(submission.evidence.count) ? submission.evidence.count : 10;
+    const suggested = count * (Number(criteriaItem.marks) || 0);
+    return Math.max(0, suggested);
+  }
+
+  if (criteriaItem.type === "range") {
+    const marks = (criteriaItem.rules || []).map((rule) => rule.marks);
+    return marks.length ? Math.max(...marks, 0) : 0;
+  }
+
+  return Math.max(0, Number(criteriaItem.marks) || 0);
+}
+
+function getSubmissionScoreCapacity(submission) {
+  const criteriaItem = getCriteriaById(submission.criteriaId);
+  if (!criteriaItem || criteriaItem.type === "negative") {
+    return 0;
+  }
+
+  if (criteriaItem.type === "range") {
+    const marks = (criteriaItem.rules || []).map((rule) => rule.marks).filter((mark) => mark > 0);
+    return marks.length ? Math.max(...marks) : 0;
+  }
+
+  if (criteriaItem.type === "count") {
+    return Math.max(0, calculateMarksByRule(submission, criteriaItem));
+  }
+
+  return Math.max(0, Number(criteriaItem.marks) || 0);
+}
+
+function getCriteriaRuleSummary(criteriaItem) {
+  if (!criteriaItem) {
+    return "-";
+  }
+
+  if (criteriaItem.type === "range") {
+    return formatRulesText(criteriaItem.rules || []);
+  }
+
+  if (criteriaItem.type === "count") {
+    return "per count x " + criteriaItem.marks;
+  }
+
+  if (criteriaItem.type === "negative") {
+    return "penalty per count x " + criteriaItem.marks;
+  }
+
+  if (criteriaItem.type === "boolean") {
+    return "Yes => " + criteriaItem.marks + ", No => 0";
+  }
+
+  return "fixed/boolean: " + criteriaItem.marks;
+}
+
+function formatEvidenceSummary(submission, criteriaItem) {
+  if (!criteriaItem) {
+    return "-";
+  }
+
+  const evidence = normalizeEvidence(submission.evidence);
+  const autoMarks = calculateMarksByRule(submission, criteriaItem);
+
+  if (criteriaItem.type === "count") {
+    const count = Number.isFinite(evidence.count) ? evidence.count : 0;
+    return count + " x " + criteriaItem.marks + " = " + autoMarks.toFixed(1);
+  }
+
+  if (criteriaItem.type === "negative") {
+    const count = Number.isFinite(evidence.count) ? evidence.count : 1;
+    return count + " x " + criteriaItem.marks + " = " + autoMarks.toFixed(1);
+  }
+
+  if (criteriaItem.type === "range") {
+    const value = Number.isFinite(evidence.value) ? evidence.value : null;
+    const matched = getMatchedRangeRule(criteriaItem, value);
+    const rangeLabel = matched ? matched.min + "-" + matched.max : "no matching range";
+    return Number.isFinite(value) ? value + "% => " + rangeLabel + " = " + autoMarks.toFixed(1) : "No percentage entered";
+  }
+
+  if (criteriaItem.type === "boolean") {
+    return (evidence.checked ? "Yes" : "No") + " = " + autoMarks.toFixed(1);
+  }
+
+  return "Applicable = " + autoMarks.toFixed(1);
+}
+
+function getMatchedRangeRule(criteriaItem, value) {
+  if (!criteriaItem || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return (criteriaItem.rules || []).find((rule) => value >= rule.min && value <= rule.max) || null;
+}
+
+function getCriteriaTypeLabel(type) {
+  if (type === "count") {
+    return "Count Based";
+  }
+  if (type === "range") {
+    return "Range Based";
+  }
+  if (type === "negative") {
+    return "Negative Marks";
+  }
+  if (type === "boolean") {
+    return "Yes/No";
+  }
+  return "Fixed / Boolean";
+}
+
+function getCriteriaCategoryLabel(criteriaItem) {
+  return criteriaItem ? criteriaItem.category : "General";
 }
 
 function buildClassPerformance() {
@@ -1485,14 +1889,14 @@ function buildClassPerformance() {
     });
   });
 
-  submissions.forEach((item) => {
-    if (item.status !== "Approved") {
+  submissions.forEach((submission) => {
+    if (submission.status !== "Approved") {
       return;
     }
 
-    const student = getStudentById(item.studentId);
-    const itemCriteria = getCriteriaById(item.criteriaId);
-    if (!student || !itemCriteria) {
+    const student = getStudentById(submission.studentId);
+    const criteriaItem = getCriteriaById(submission.criteriaId);
+    if (!student || !criteriaItem) {
       return;
     }
 
@@ -1501,8 +1905,9 @@ function buildClassPerformance() {
       return;
     }
 
-    classEntry.totalScore += safeMark(item.marks);
-    classEntry.maxScore += itemCriteria.maxMarks;
+    const effective = getSubmissionEffectiveMarks(submission);
+    classEntry.totalScore += effective;
+    classEntry.maxScore += getSubmissionScoreCapacity(submission);
   });
 
   const classData = Array.from(classMap.values());
@@ -1518,6 +1923,27 @@ function buildClassPerformance() {
   });
 
   return classData;
+}
+
+function buildSummaryMetrics(items) {
+  const total = items.length;
+  const approved = items.filter((item) => item.status === "Approved").length;
+  const pending = items.filter((item) => item.status === "Pending").length;
+  const rejected = items.filter((item) => item.status === "Rejected").length;
+  const correction = items.filter((item) => String(item.status).toLowerCase().indexOf("correction") > -1).length;
+  const approvedItems = items.filter((item) => item.status === "Approved");
+  const score = approvedItems.reduce((sum, item) => sum + safeMark(getSubmissionEffectiveMarks(item)), 0);
+  const maxScore = approvedItems.reduce((sum, item) => sum + getSubmissionScoreCapacity(item), 0);
+
+  return {
+    total: total,
+    approved: approved,
+    pending: pending,
+    rejected: rejected,
+    correction: correction,
+    score: score,
+    maxScore: maxScore
+  };
 }
 
 function calculateGrade(normalizedScore) {
@@ -1543,35 +1969,41 @@ function getStudentById(id) {
   return students.find((item) => item.id === id);
 }
 
-function getLeaderClassForDemo(email) {
-  const normalized = String(email || "").toLowerCase();
-  if (normalized.includes("bcom")) {
-    return "BCom B";
-  }
-  if (normalized.includes("english") || normalized.includes("ba")) {
-    return "BA English C";
-  }
-  return "BSc CS A";
+function getDepartmentByClassName(className) {
+  const normalizedClass = String(className || "").toLowerCase();
+  const matchedRule = evaluatorDepartmentRules.find((rule) => normalizedClass.indexOf(rule.match) > -1);
+  return matchedRule ? matchedRule.department : "General";
 }
 
-function canLeaderAccessSubmission(submissionId) {
-  const submission = submissions.find((item) => item.id === submissionId);
-  if (!submission) {
-    return false;
-  }
-  const student = getStudentById(submission.studentId);
-  return Boolean(student && student.className === state.leaderClassName);
+function getApprovedSubmissionsByStudent(studentId) {
+  return submissions.filter((item) => item.studentId === studentId && item.status === "Approved");
 }
 
-function canStudentEdit(submission) {
-  if (!submission || submission.studentId !== state.currentStudentId) {
-    return false;
-  }
-  return submission.status === "Pending" || submission.status === "Correction Requested" || submission.status === "Edit Allowed";
+function getCriteriaCategories() {
+  return criteriaCatalog;
+}
+
+function getAllCriteriaItems() {
+  return criteriaCatalog.reduce((acc, category) => {
+    return acc.concat(category.items || []);
+  }, []);
+}
+
+function getCategoryById(categoryId) {
+  return criteriaCatalog.find((category) => String(category.id) === String(categoryId));
+}
+
+function getCategoryByItemId(itemId) {
+  return criteriaCatalog.find((category) => (category.items || []).some((item) => item.id === itemId));
 }
 
 function getCriteriaById(id) {
-  return criteria.find((item) => item.id === id);
+  return getAllCriteriaItems().find((item) => Number(item.id) === Number(id));
+}
+
+function getGradeClass(grade) {
+  const normalized = String(grade || "").toLowerCase().replace("+", "-plus");
+  return "grade-" + normalized;
 }
 
 function safeMark(value) {
@@ -1595,7 +2027,61 @@ function getStatusClass(status) {
   return "status-neutral";
 }
 
+function resetEvaluatorFlow() {
+  state.evaluatorView = "departments";
+  state.evaluatorDepartment = "";
+  state.evaluatorStudentId = null;
+  state.evaluatorTransition = null;
+  if (evaluatorTransitionResetTimer) {
+    clearTimeout(evaluatorTransitionResetTimer);
+    evaluatorTransitionResetTimer = null;
+  }
+}
+
+function setEvaluatorTransition(submissionId, direction) {
+  state.evaluatorTransition = {
+    submissionId: Number(submissionId),
+    direction: String(direction || "")
+  };
+
+  if (evaluatorTransitionResetTimer) {
+    clearTimeout(evaluatorTransitionResetTimer);
+  }
+
+  evaluatorTransitionResetTimer = setTimeout(() => {
+    state.evaluatorTransition = null;
+    evaluatorTransitionResetTimer = null;
+  }, 700);
+}
+
+function openConfirmModal(title, message, action) {
+  if (!ui.confirmModal || !ui.confirmTitle || !ui.confirmMessage) {
+    return;
+  }
+
+  pendingConfirmationAction = action;
+  ui.confirmTitle.textContent = title;
+  ui.confirmMessage.textContent = message;
+  ui.confirmModal.classList.remove("hidden");
+  ui.confirmModal.setAttribute("aria-hidden", "false");
+}
+
+function closeConfirmModal() {
+  if (!ui.confirmModal) {
+    pendingConfirmationAction = null;
+    return;
+  }
+
+  pendingConfirmationAction = null;
+  ui.confirmModal.classList.add("hidden");
+  ui.confirmModal.setAttribute("aria-hidden", "true");
+}
+
 function showToast(message, variant) {
+  if (!ui.toastContainer) {
+    return;
+  }
+
   const toast = document.createElement("div");
   const toastType = variant || "info";
   toast.className = "toast toast-" + toastType;
@@ -1611,7 +2097,7 @@ function showToast(message, variant) {
     setTimeout(() => {
       toast.remove();
     }, 250);
-  }, 2600);
+  }, 2800);
 }
 
 function escapeHtml(value) {
@@ -1625,4 +2111,12 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
   return escapeHtml(value);
+}
+
+function getDefaultCriteriaCatalog() {
+  return cloneCriteriaCatalog(window.criteriaData || []);
+}
+
+function getDefaultSubmissions() {
+  return cloneSubmissions(window.seedSubmissions || []);
 }
